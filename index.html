@@ -581,19 +581,6 @@ const CSM = (function(){
   const SHEET_ID = '1No1wbdt4efFHx8Xu5dL6y7J0AS4e_11r99jFB6J1Rnw';
   const GID = '1713303484';
   const STAFF_SHEET_NAME = 'ข้อมูลพนักงาน';
-
-  // ============ SERVER-SIDE DATA LOADER (google.script.run) ============
-  // ดึงข้อมูลผ่านฝั่ง Server (Code.gs) แทน client-side JSONP เพื่อเลี่ยงปัญหา
-  // OAuth/Sandbox dialog ที่เกิดขึ้นเมื่อ Browser ยิง Request ข้ามโดเมนจากใน
-  // iframe ของ Apps Script โดยตรง
-  function runServer(fnName, ...args){
-    return new Promise((resolve, reject)=>{
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(err=>reject(new Error(err && err.message ? err.message : err)))
-        [fnName](...args);
-    });
-  }
   const AUTO_REFRESH_MS = 10 * 60 * 1000; // 10 minutes
   const NEAR_DUE_WINDOW_DAYS = 7;
 
@@ -823,7 +810,8 @@ const CSM = (function(){
     if (manual){ overlay.classList.remove('hidden'); btn.disabled = true; }
     let staffWarning = '';
     try {
-      const body = await runServer('getSheetData', GID, null);
+      const mainTable = await fetchGviz({gid: GID});
+      const body = gvizTableToRows(mainTable);
       const built = [];
       for (const cols of body){
         const it = buildItem(cols);
@@ -834,7 +822,8 @@ const CSM = (function(){
       // Load the live Staff tab too — if it fails, keep whatever STAFF we already have
       // (embedded fallback on first load, or last-known-good data on later refreshes)
       try {
-        const staffRows = await runServer('getSheetData', null, STAFF_SHEET_NAME);
+        const staffTable = await fetchGviz({sheetName: STAFF_SHEET_NAME});
+        const staffRows = gvizTableToRows(staffTable);
         const parsed = parseStaffRows(staffRows);
         if (parsed.length){ STAFF = parsed; populateSaleDropdown(); }
         else staffWarning = ' · ⚠️ อ่าน Tab พนักงานได้แต่ไม่พบข้อมูล ใช้รายชื่อล่าสุดที่เคยโหลดไว้แทน';
