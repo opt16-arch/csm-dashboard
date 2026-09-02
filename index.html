@@ -95,6 +95,21 @@ select,input{font-family:'Bai Jamjuree',sans-serif;}
   text-decoration:none;
 }
 .btn-fullscreen:hover{background:rgba(255,255,255,.22);}
+.pagination-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:12px 4px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--ink-soft);
+}
+.pagination-bar .pg-info{white-space:nowrap;}
+.pagination-bar .pg-controls{display:flex;align-items:center;gap:4px;}
+.pagination-bar button{
+  background:#fff;border:1px solid var(--card-border);color:var(--ink);
+  border-radius:5px;padding:6px 11px;font-size:12.5px;cursor:pointer;
+  font-family:inherit;
+}
+.pagination-bar button:hover:not(:disabled){background:var(--callout-bg);border-color:var(--blue);}
+.pagination-bar button:disabled{opacity:.4;cursor:default;}
+.pagination-bar button.active{background:var(--blue);color:#fff;border-color:var(--blue);}
 .btn-issues{
   background:var(--red-bg);
   color:var(--red);
@@ -349,7 +364,7 @@ tbody tr:hover{background:#F7FBFF;}
     <div class="filter-bar">
       <div class="filter-group">
         <label>สถานะ</label>
-        <select id="ovStatusFilter" onchange="CSM.renderOverviewTable()">
+        <select id="ovStatusFilter" onchange="CSM.renderOverviewTable(true)">
           <option value="">ทั้งหมด</option>
           <option value="overdue">เกินกำหนด</option>
           <option value="near">ใกล้ครบกำหนด</option>
@@ -359,11 +374,20 @@ tbody tr:hover{background:#F7FBFF;}
       </div>
       <div class="filter-group">
         <label>Warehouse</label>
-        <select id="ovWarehouseFilter" onchange="CSM.renderOverviewTable()"><option value="">ทั้งหมด</option></select>
+        <select id="ovWarehouseFilter" onchange="CSM.renderOverviewTable(true)"><option value="">ทั้งหมด</option></select>
       </div>
       <div class="filter-group">
         <label>ค้นหา (Document / ลูกค้า)</label>
-        <input type="text" id="ovSearch" placeholder="พิมพ์คำค้นหา..." oninput="CSM.renderOverviewTable()">
+        <input type="text" id="ovSearch" placeholder="พิมพ์คำค้นหา..." oninput="CSM.renderOverviewTable(true)">
+      </div>
+      <div class="filter-group">
+        <label>แสดงต่อหน้า</label>
+        <select id="ovPageSize" onchange="CSM.renderOverviewTable(true)">
+          <option value="10">10 รายการ</option>
+          <option value="25">25 รายการ</option>
+          <option value="50">50 รายการ</option>
+          <option value="100">100 รายการ</option>
+        </select>
       </div>
     </div>
     <div class="frame secondary table-wrap">
@@ -375,6 +399,7 @@ tbody tr:hover{background:#F7FBFF;}
         <tbody id="ovTableBody"></tbody>
       </table>
     </div>
+    <div class="pagination-bar" id="ovPagination"></div>
   </div>
 
   <!-- ============ PAGE: TRENDS ============ -->
@@ -1128,11 +1153,14 @@ const CSM = (function(){
       </tr>`).join('') : '<tr><td colspan="5"><div class="empty-state">ไม่มีข้อมูล</div></td></tr>';
   }
 
-  function renderOverviewTable(){
+  let ovPage = 1;
+  function renderOverviewTable(resetPage){
+    if (resetPage) ovPage = 1;
     const out = outstandingRows();
     const statusF = document.getElementById('ovStatusFilter').value;
     const whF = document.getElementById('ovWarehouseFilter').value;
     const q = document.getElementById('ovSearch').value.trim().toLowerCase();
+    const pageSize = parseInt(document.getElementById('ovPageSize').value, 10) || 10;
 
     // group by document for the table (one row per document)
     const byDoc = new Map();
@@ -1165,11 +1193,21 @@ const CSM = (function(){
     });
 
     const tbody = document.getElementById('ovTableBody');
+    const pagBar = document.getElementById('ovPagination');
     if (!docsArr.length){
       tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">ไม่พบรายการตามเงื่อนไข</div></td></tr>';
+      pagBar.innerHTML = '';
       return;
     }
-    tbody.innerHTML = docsArr.slice(0,500).map(d=>`
+
+    const totalItems = docsArr.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    if (ovPage > totalPages) ovPage = totalPages;
+    if (ovPage < 1) ovPage = 1;
+    const startIdx = (ovPage - 1) * pageSize;
+    const pageItems = docsArr.slice(startIdx, startIdx + pageSize);
+
+    tbody.innerHTML = pageItems.map(d=>`
       <tr>
         <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(d.doc)}')">${escapeHtml(d.doc)}</button></td>
         <td>${statusBadge(d.status)}${extraBadges(d)}</td>
@@ -1179,6 +1217,37 @@ const CSM = (function(){
         <td>${escapeHtml(d.warehouse)||'—'}</td>
         <td class="num">${fmtMoney(d.value)}</td>
       </tr>`).join('');
+
+    renderOverviewPagination(ovPage, totalPages, startIdx + 1, Math.min(startIdx + pageSize, totalItems), totalItems);
+  }
+
+  function renderOverviewPagination(page, totalPages, fromN, toN, totalN){
+    const pagBar = document.getElementById('ovPagination');
+    const info = `แสดง ${fromN.toLocaleString()}–${toN.toLocaleString()} จาก ${totalN.toLocaleString()} รายการ`;
+
+    // เลือกเลขหน้าที่จะโชว์แบบย่อ (หน้าปัจจุบัน ± 2, หน้าแรก, หน้าสุดท้าย)
+    const pages = [];
+    for (let p = 1; p <= totalPages; p++){
+      if (p === 1 || p === totalPages || (p >= page - 2 && p <= page + 2)) pages.push(p);
+      else if (pages[pages.length-1] !== '…') pages.push('…');
+    }
+    const pageBtns = pages.map(p=>{
+      if (p === '…') return `<span style="padding:6px 4px;">…</span>`;
+      return `<button class="${p===page?'active':''}" onclick="CSM.goOverviewPage(${p})">${p}</button>`;
+    }).join('');
+
+    pagBar.innerHTML = `
+      <div class="pg-info">${info}</div>
+      <div class="pg-controls">
+        <button onclick="CSM.goOverviewPage(${page-1})" ${page<=1?'disabled':''}>‹ ก่อนหน้า</button>
+        ${pageBtns}
+        <button onclick="CSM.goOverviewPage(${page+1})" ${page>=totalPages?'disabled':''}>ถัดไป ›</button>
+      </div>`;
+  }
+
+  function goOverviewPage(p){
+    ovPage = p;
+    renderOverviewTable(false);
   }
 
   // ============ MANAGEMENT SCORE (composite grade) ============
@@ -2000,7 +2069,7 @@ const CSM = (function(){
 
   document.addEventListener('DOMContentLoaded', init);
 
-  return { showPage, refresh, renderOverviewTable, renderSalePage, renderWriteoffTable, openDocModal, closeDocModal, openDataIssuesModal, closeDataIssuesModal, exportDataIssuesToExcel, filterSaleCombobox, openSaleCombobox, selectSaleStaff, setTrendsWarehouseFilter };
+  return { showPage, refresh, renderOverviewTable, goOverviewPage, renderSalePage, renderWriteoffTable, openDocModal, closeDocModal, openDataIssuesModal, closeDataIssuesModal, exportDataIssuesToExcel, filterSaleCombobox, openSaleCombobox, selectSaleStaff, setTrendsWarehouseFilter };
 })();
 
 </script>
