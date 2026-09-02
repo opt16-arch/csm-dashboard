@@ -81,6 +81,20 @@ select,input{font-family:'Bai Jamjuree',sans-serif;}
 }
 .btn-refresh:hover{background:#ffa23f;}
 .btn-refresh:disabled{opacity:.5;cursor:default;}
+.btn-fullscreen{
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.35);
+  font-weight:600;
+  font-size:12px;
+  padding:8px 14px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  letter-spacing:.02em;
+  text-decoration:none;
+}
+.btn-fullscreen:hover{background:rgba(255,255,255,.22);}
 .btn-issues{
   background:var(--red-bg);
   color:var(--red);
@@ -293,6 +307,7 @@ tbody tr:hover{background:#F7FBFF;}
     <span id="statusText">อัปเดตล่าสุด: —</span>
   </div>
   <button class="btn-issues hidden" id="btnDataIssues" onclick="CSM.openDataIssuesModal()"></button>
+  <a class="btn-fullscreen hidden" id="btnFullscreen" href="#" target="_blank" rel="noopener">⛶ เปิดเต็มจอ</a>
   <button class="btn-refresh" id="btnRefresh" onclick="CSM.refresh(true)">🔄 รีเฟรชตอนนี้</button>
 </div>
 
@@ -1965,6 +1980,22 @@ const CSM = (function(){
     fetchData(false);
     autoTimer = setInterval(()=>fetchData(false), AUTO_REFRESH_MS);
     window.addEventListener('resize', ()=>{ if(rows.length) renderAll(); });
+
+    // แสดงปุ่ม "เปิดเต็มจอ" เฉพาะตอนที่หน้านี้ถูกฝังอยู่ใน iframe (เช่นใน Google Sites)
+    // เพราะบางแพลตฟอร์มที่ฝัง iframe อาจดักจับ Click Event ทำให้เปิด Modal รายละเอียดไม่ได้
+    // ปุ่มนี้จึงเป็นทางออกสำรองให้เปิดหน้าเต็มในแท็บใหม่แทน
+    try {
+      if (window.self !== window.top) {
+        const btn = document.getElementById('btnFullscreen');
+        btn.href = window.location.href;
+        btn.classList.remove('hidden');
+      }
+    } catch(e) {
+      // เข้าถึง window.top ไม่ได้ (ข้าม origin) — ถือว่าอยู่ใน iframe เช่นกัน แสดงปุ่มไว้
+      const btn = document.getElementById('btnFullscreen');
+      btn.href = window.location.href;
+      btn.classList.remove('hidden');
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);
