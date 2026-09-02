@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSM Consignment Dashboard — Optimus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --blue:#0050A0;
+  --blue-dark:#003D7A;
+  --orange:#F08C1E;
+  --navy:#0D1B2A;
+  --callout-bg:#E8F1FA;
+  --gray-label:#888888;
+  --line:#0050A0;
+  --red:#C0392B;
+  --red-bg:#FBEAE8;
+  --green:#1F8A55;
+  --green-bg:#E7F5EE;
+  --amber:#F08C1E;
+  --amber-bg:#FDF1E1;
+  --ink:#0D1B2A;
+  --ink-soft:#4A5A6A;
+  --white:#FFFFFF;
+  --page-bg:#F5F9FC;
+  --card-border:#D6E4F2;
+  --radius:0px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:'Bai Jamjuree',sans-serif;
+  color:var(--ink);
+  background-color:var(--page-bg);
+  min-height:100vh;
+  line-height:1.5;
+}
+h1,h2,h3,h4{font-weight:600;color:var(--blue);}
+button{font-family:'Bai Jamjuree',sans-serif;cursor:pointer;}
+select,input{font-family:'Bai Jamjuree',sans-serif;}
+
+/* ============ HEADER ============ */
+.topbar{
+  background:var(--blue);
+  color:#fff;
+  padding:14px 24px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+  position:sticky;
+  top:0;
+  z-index:100;
+  border-bottom:2px solid var(--orange);
+}
+.topbar img.logo{height:28px;display:block;}
+.topbar .title-block{display:flex;flex-direction:column;gap:1px;}
+.topbar .title-block .th{font-size:15px;font-weight:600;letter-spacing:.01em;}
+.topbar .title-block .en{font-size:10px;color:#9FB3C8;text-transform:uppercase;letter-spacing:.08em;}
+.topbar .spacer{flex:1;}
+.topbar .status{display:flex;align-items:center;gap:10px;font-size:12px;color:#C7D6E6;}
+.topbar .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;}
+.topbar .dot.loading{background:var(--amber);animation:pulse 1s infinite;}
+.topbar .dot.error{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.btn-refresh{
+  background:var(--orange);
+  color:#0D1B2A;
+  border:none;
+  font-weight:600;
+  font-size:12px;
+  padding:8px 14px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  letter-spacing:.02em;
+}
+.btn-refresh:hover{background:#ffa23f;}
+.btn-refresh:disabled{opacity:.5;cursor:default;}
+.btn-issues{
+  background:var(--red-bg);
+  color:var(--red);
+  border:1px solid var(--red);
+  font-weight:600;
+  font-size:12px;
+  padding:8px 14px;
+}
+.btn-issues:hover{background:#fddede;}
+
+/* ============ NAV TABS ============ */
+.nav{
+  background:var(--blue-dark);
+  display:flex;
+  padding:0 24px;
+  gap:2px;
+  overflow-x:auto;
+  position:sticky;
+  top:57px;
+  z-index:99;
+}
+.nav button{
+  background:none;border:none;color:rgba(255,255,255,.68);
+  padding:12px 18px;font-size:13px;font-weight:500;
+  border-bottom:3px solid transparent;white-space:nowrap;
+  letter-spacing:.02em;
+}
+.nav button:hover{color:#fff;}
+.nav button.active{color:#fff;border-bottom-color:var(--orange);font-weight:600;}
+
+/* ============ MAIN LAYOUT ============ */
+.main{max-width:1320px;margin:0 auto;padding:22px 20px 60px;}
+.page{display:none;}
+.page.active{display:block;}
+
+.section-label{
+  font-size:11px;font-weight:400;color:var(--gray-label);
+  text-transform:uppercase;letter-spacing:.1em;
+  border-bottom:1px solid #DCE7F2;padding-bottom:6px;margin:28px 0 14px;
+}
+.section-label:first-child{margin-top:0;}
+
+/* ============ FRAME / CARD (blueprint corner marks) ============ */
+.frame{
+  position:relative;
+  background:#fff;
+  border:1px solid var(--card-border);
+  border-radius:0;
+  padding:16px 18px;
+}
+.corner{position:absolute;width:11px;height:11px;pointer-events:none;}
+.corner.tl{top:-1px;left:-1px;border-top:2px solid var(--mark,var(--blue));border-left:2px solid var(--mark,var(--blue));}
+.corner.tr{top:-1px;right:-1px;border-top:2px solid var(--mark,var(--blue));border-right:2px solid var(--mark,var(--blue));}
+.corner.bl{bottom:-1px;left:-1px;border-bottom:2px solid var(--mark,var(--blue));border-left:2px solid var(--mark,var(--blue));}
+.corner.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--mark,var(--blue));border-right:2px solid var(--mark,var(--blue));}
+.frame.primary{--mark:var(--orange);}
+.frame.secondary{--mark:var(--blue);}
+
+/* ============ KPI GRID ============ */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;}
+.kpi{padding:16px 18px;}
+.kpi .lbl{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+.kpi .val{font-size:28px;font-weight:700;color:var(--blue);line-height:1.1;}
+.kpi .val.red{color:var(--red);}
+.kpi .val.amber{color:var(--amber);}
+.kpi .val.green{color:var(--green);}
+.kpi .sub{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+
+/* ============ BADGES / STATUS ============ */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:.02em;border-radius:0;}
+.badge.overdue{background:var(--red-bg);color:var(--red);}
+.badge.near{background:var(--amber-bg);color:var(--amber);}
+.badge.ok{background:var(--green-bg);color:var(--green);}
+.badge.writeoff{background:var(--navy);color:#fff;}
+.badge.oldnote{background:var(--amber-bg);color:var(--amber);}
+.badge.pending{background:var(--callout-bg);color:var(--blue);}
+.badge.bydesign{background:var(--callout-bg);color:var(--blue);border:1px solid var(--blue);}
+.badge.delayed{background:#F2EAFB;color:#6B3FA0;}
+.badge.unknown{background:#EEE;color:#777;}
+
+/* ============ TABLE ============ */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{
+  text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--gray-label);font-weight:600;padding:8px 10px;border-bottom:1px solid #DCE7F2;
+  white-space:nowrap;position:sticky;top:0;background:#fff;
+}
+tbody td{padding:9px 10px;border-bottom:1px solid #EEF3F8;vertical-align:top;}
+tbody tr:hover{background:#F7FBFF;}
+.mono{font-family:'Courier New',monospace;font-size:12px;}
+.num{text-align:right;font-variant-numeric:tabular-nums;}
+
+/* ============ CALLOUT ============ */
+.callout{background:var(--callout-bg);border:1px solid var(--blue);border-left:4px solid var(--blue);padding:12px 16px;font-size:13px;color:var(--ink);}
+.callout.orange{border-color:var(--orange);border-left-color:var(--orange);background:var(--amber-bg);}
+
+/* ============ FILTER BAR ============ */
+.filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+.filter-bar select, .filter-bar input[type=text]{
+  border:1px solid var(--card-border);padding:8px 12px;font-size:13px;background:#fff;color:var(--ink);
+  min-width:170px;
+}
+.filter-bar select:focus, .filter-bar input:focus{outline:2px solid var(--orange);outline-offset:-1px;}
+.filter-bar label{font-size:12px;color:var(--ink-soft);font-weight:500;}
+.filter-group{display:flex;flex-direction:column;gap:4px;}
+
+/* ============ CHART CONTAINER ============ */
+.chart-card{padding:18px 20px 12px;}
+.chart-card h3{font-size:14px;margin-bottom:2px;}
+.chart-card .chart-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;}
+.chart-legend{display:flex;gap:16px;font-size:11.5px;color:var(--ink-soft);margin-top:6px;flex-wrap:wrap;}
+.chart-legend span{display:inline-flex;align-items:center;gap:5px;}
+.chart-legend i{width:10px;height:10px;display:inline-block;}
+
+/* ============ GRID LAYOUTS ============ */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media (max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+
+/* ============ MISC ============ */
+.empty-state{text-align:center;padding:40px 20px;color:var(--ink-soft);font-size:13px;}
+.footer-note{font-size:11px;color:#9AAAB8;text-align:center;margin-top:40px;padding-top:16px;border-top:1px solid #DCE7F2;}
+.tag{display:inline-block;background:var(--callout-bg);color:var(--blue);font-size:10.5px;padding:2px 8px;margin:2px 3px 2px 0;font-weight:600;}
+.loading-overlay{position:fixed;inset:0;background:rgba(245,249,252,.85);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:10px;}
+.loading-overlay .spinner{width:34px;height:34px;border:3px solid var(--callout-bg);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-overlay span{font-size:12.5px;color:var(--ink-soft);}
+.hidden{display:none !important;}
+
+.slider-row{display:flex;align-items:center;gap:10px;}
+.slider-row input[type=range]{accent-color:var(--blue);width:140px;}
+.slider-row .val{font-weight:600;color:var(--blue);min-width:56px;font-size:13px;}
+
+/* ============ DOC DETAIL MODAL ============ */
+.doc-link{cursor:pointer;color:var(--blue);font-weight:700;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;background:none;border:none;padding:0;font-family:inherit;font-size:inherit;}
+.doc-link:hover{color:var(--blue-dark);}
+.modal-overlay{position:fixed;inset:0;background:rgba(13,27,42,.6);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;}
+.modal-overlay.hidden{display:none;}
+.modal-panel{background:#fff;max-width:840px;width:100%;max-height:86vh;overflow-y:auto;padding:26px 26px 20px;}
+.modal-close{position:absolute;top:8px;right:8px;background:none;border:none;font-size:18px;color:var(--ink-soft);width:30px;height:30px;line-height:1;}
+.modal-close:hover{color:var(--red);}
+.modal-header h3{font-size:19px;color:var(--blue);font-family:'Courier New',monospace;}
+.modal-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0 18px;}
+.modal-summary .mini{background:var(--callout-bg);padding:10px 12px;}
+.modal-summary .mini .l{font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.modal-summary .mini .v{font-size:16px;font-weight:700;color:var(--blue);}
+.modal-summary .mini .v.red{color:var(--red);}
+
+/* ============ MANAGEMENT SCORE CARD ============ */
+.mgmt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px;}
+.mgmt-metric{background:var(--callout-bg);padding:10px 12px;}
+.mgmt-metric .l{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;}
+.mgmt-metric .v{font-size:16px;font-weight:700;color:var(--blue);}
+.mgmt-metric .w{font-size:10.5px;color:var(--ink-soft);margin-top:4px;}
+.mgmt-trend-badge{font-size:12px;padding:6px 14px;font-weight:600;white-space:nowrap;}
+.mgmt-trend-badge.up{background:var(--green-bg);color:var(--green);}
+.mgmt-trend-badge.down{background:var(--red-bg);color:var(--red);}
+.mgmt-trend-badge.flat{background:var(--amber-bg);color:var(--amber);}
+
+/* ============ SEARCHABLE COMBOBOX ============ */
+.combobox{position:relative;min-width:280px;}
+.combobox-input{
+  width:100%;border:1px solid var(--card-border);padding:8px 12px;font-size:13px;
+  background:#fff;color:var(--ink);font-family:'Bai Jamjuree',sans-serif;
+}
+.combobox-input:focus{outline:2px solid var(--orange);outline-offset:-1px;}
+.combobox-list{
+  position:absolute;top:calc(100% + 2px);left:0;right:0;max-height:260px;overflow-y:auto;
+  background:#fff;border:1px solid var(--blue);z-index:200;box-shadow:0 4px 12px rgba(0,80,160,.15);
+}
+.combobox-list.hidden{display:none;}
+.combobox-item{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #EEF3F8;}
+.combobox-item:last-child{border-bottom:none;}
+.combobox-item:hover,.combobox-item.active{background:var(--callout-bg);color:var(--blue);}
+.combobox-item .dept{color:var(--ink-soft);font-size:11.5px;}
+.combobox-empty{padding:12px;font-size:13px;color:var(--ink-soft);text-align:center;}
+
+/* ============ SALE ANALYSIS STAT LISTS ============ */
+.stat-row{display:flex;align-items:baseline;justify-content:space-between;padding:9px 0;border-bottom:1px solid #EEF3F8;}
+.stat-row:last-child{border-bottom:none;}
+.stat-row .stat-label{font-size:12.5px;color:var(--ink-soft);}
+.stat-row .stat-value{font-size:16px;font-weight:700;color:var(--blue);}
+.stat-row .stat-value.red{color:var(--red);}
+.stat-row .stat-value.amber{color:var(--amber);}
+.stat-row .stat-value.green{color:var(--green);}
+.wh-mini-bar{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;}
+.wh-mini-bar .wh-name{width:64px;flex-shrink:0;color:var(--ink-soft);font-weight:600;}
+.wh-mini-bar .wh-track{flex:1;background:#EEF3F8;height:8px;position:relative;}
+.wh-mini-bar .wh-fill{background:var(--blue);height:8px;}
+.wh-mini-bar .wh-pct{width:78px;flex-shrink:0;text-align:right;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <span id="loadingMsg">กำลังดึงข้อมูลจาก Google Sheet...</span>
+</div>
+
+<div class="topbar">
+  <img class="logo" src="https://lh3.googleusercontent.com/d/1TTnE-p8y6rmI7xhwbua3gFPvJB5mhgpY=s0" alt="Optimus">
+  <div class="title-block">
+    <div class="th">CSM Consignment Dashboard</div>
+    <div class="en">Optimus (Thailand) Co., Ltd. — A Revolution Ahead</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">อัปเดตล่าสุด: —</span>
+  </div>
+  <button class="btn-issues hidden" id="btnDataIssues" onclick="CSM.openDataIssuesModal()"></button>
+  <button class="btn-refresh" id="btnRefresh" onclick="CSM.refresh(true)">🔄 รีเฟรชตอนนี้</button>
+</div>
+
+<div class="nav">
+  <button class="active" data-page="overview" onclick="CSM.showPage('overview')">ภาพรวม</button>
+  <button data-page="trends" onclick="CSM.showPage('trends')">แนวโน้มการคืน</button>
+  <button data-page="sale" onclick="CSM.showPage('sale')">มุมมอง Sale</button>
+  <button data-page="writeoff" onclick="CSM.showPage('writeoff')">รอเคลียร์ออกจากระบบ</button>
+  <button data-page="action" onclick="CSM.showPage('action')">คำแนะนำ</button>
+</div>
+
+<div class="main">
+
+  <!-- ============ PAGE: OVERVIEW ============ -->
+  <div class="page active" id="page-overview">
+    <div class="section-label">ภาพรวมทั้งหมด</div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="section-label">Ageing — จำนวนวันที่เกินกำหนดคืน (เฉพาะรายการค้าง)</div>
+    <div class="frame secondary chart-card">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <h3>Ageing Bucket</h3>
+      <div class="chart-sub">นับจากรายการ (Serial) ที่ยังไม่คืน แบ่งตามจำนวนวันเกินกำหนด</div>
+      <div id="ageingChart"></div>
+    </div>
+
+    <div class="section-label">ยอดค้างแยกตาม Warehouse</div>
+    <div class="frame secondary table-wrap">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <table>
+        <thead><tr>
+          <th>Warehouse</th><th class="num">จำนวนเอกสาร</th><th class="num">จำนวนรายการ</th><th class="num">มูลค่ารวม (บาท)</th><th class="num">% ของมูลค่าค้างทั้งหมด</th>
+        </tr></thead>
+        <tbody id="warehouseBreakdownBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-label">รายการค้างคืนทั้งหมด</div>
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>สถานะ</label>
+        <select id="ovStatusFilter" onchange="CSM.renderOverviewTable()">
+          <option value="">ทั้งหมด</option>
+          <option value="overdue">เกินกำหนด</option>
+          <option value="near">ใกล้ครบกำหนด</option>
+          <option value="pending_inspection">รอตรวจสอบสินค้า</option>
+          <option value="ok">ยังไม่ถึงกำหนด</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Warehouse</label>
+        <select id="ovWarehouseFilter" onchange="CSM.renderOverviewTable()"><option value="">ทั้งหมด</option></select>
+      </div>
+      <div class="filter-group">
+        <label>ค้นหา (Document / ลูกค้า)</label>
+        <input type="text" id="ovSearch" placeholder="พิมพ์คำค้นหา..." oninput="CSM.renderOverviewTable()">
+      </div>
+    </div>
+    <div class="frame secondary table-wrap">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <table>
+        <thead><tr>
+          <th>Document</th><th>สถานะ</th><th>กำหนดคืน</th><th>Sale</th><th>ลูกค้า</th><th>Warehouse</th><th class="num">มูลค่า (บาท)</th>
+        </tr></thead>
+        <tbody id="ovTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ PAGE: TRENDS ============ -->
+  <div class="page" id="page-trends">
+    <div class="section-label">แนวโน้มการคืน — แยกวิเคราะห์ตาม Warehouse</div>
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Warehouse</label>
+        <select id="trendsWarehouseFilter" onchange="CSM.setTrendsWarehouseFilter(this.value)" style="min-width:220px;">
+          <option value="">ทั้งหมดทุกคลัง</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-label">สรุปคะแนนบริหารจัดการ CSM โดยรวม</div>
+    <div id="mgmtScoreCard"></div>
+    <div class="callout" style="margin-top:14px;">คะแนนรวมด้านบนคำนวณจาก 4 องค์ประกอบ เทียบ 3 เดือนล่าสุดกับ 3 เดือนก่อนหน้า: อัตราคืนตรงเวลา (40%) · แนวโน้ม Backlog สะสม (25%) · จำนวนวันคืนช้าเฉลี่ย (20%) · มูลค่าที่ยังค้างตัดสินใจเคลียร์ออกจากระบบ เช่น หาย/ชำรุด (15%) — กราฟรายเดือนด้านล่างมีไว้ให้ไล่ดูรายละเอียดย้อนหลัง</div>
+
+    <div class="section-label">อัตราคืนตรงเวลารายเดือน (On-time Rate)</div>
+    <div class="frame secondary chart-card">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <h3>% รายการที่คืนตรงเวลาในแต่ละเดือน</h3>
+      <div class="chart-sub">คำนวณจากรายการที่ปิดเคส (มี Rtn Date) และไม่ใช่กรณีสูญหาย/ชำรุด — เทียบวันที่คืนจริงกับวันครบกำหนด</div>
+      <div id="onTimeChart"></div>
+    </div>
+
+    <div class="section-label">Backlog สะสม — เปิดใหม่ vs คืนแล้ว รายเดือน</div>
+    <div class="frame secondary chart-card">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <h3>จำนวนรายการเปิดใหม่ เทียบกับปิดเคสแล้ว ต่อเดือน</h3>
+      <div class="chart-sub">แท่งฟ้า = เปิดใหม่ในเดือนนั้น · แท่งส้ม = ปิดเคสแล้วในเดือนนั้น (คืนจริง+ตัดจำหน่าย) · เส้น = ยอดค้างสะสม</div>
+      <div id="backlogChart"></div>
+    </div>
+
+    <div class="section-label">จำนวนวันเฉลี่ยที่คืนช้ากว่ากำหนด รายเดือน</div>
+    <div class="frame secondary chart-card">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <h3>ค่าเฉลี่ยวันที่คืนช้ากว่ากำหนด (เฉพาะรายการที่คืนช้า)</h3>
+      <div class="chart-sub">ยิ่งเส้นลดลง = ยิ่งดี — คืนช้าน้อยลงเมื่อเทียบเดือนก่อนหน้า</div>
+      <div id="lateDaysChart"></div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE: SALE VIEW ============ -->
+  <div class="page" id="page-sale">
+    <div class="section-label">มุมมองสำหรับ Sale — ดูเฉพาะรายการค้างของตัวเอง</div>
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>เลือกชื่อของคุณ (พิมพ์เพื่อค้นหาได้)</label>
+        <div class="combobox" id="saleCombobox">
+          <input type="text" id="saleSearchInput" class="combobox-input" placeholder="พิมพ์ชื่อเพื่อค้นหา..." autocomplete="off"
+                 oninput="CSM.filterSaleCombobox(this.value)" onfocus="CSM.openSaleCombobox()">
+          <div class="combobox-list hidden" id="saleComboboxList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="saleEmptyState" class="empty-state hidden">กรุณาเลือกชื่อของคุณด้านบน เพื่อดูรายการค้างที่เป็นของคุณ</div>
+
+    <div id="saleContent" class="hidden">
+      <div class="kpi-grid" id="saleKpiGrid"></div>
+
+      <div class="section-label">วิเคราะห์พฤติกรรมของคุณ</div>
+      <div class="grid-3">
+        <div class="frame secondary" style="padding:16px 18px;">
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <h3 style="font-size:14px;margin-bottom:2px;">คืนตรงเวลากี่ %</h3>
+          <div class="chart-sub" style="margin-bottom:12px;">คำนวณจากประวัติรายการที่คุณคืนแล้วทั้งหมด (ไม่รวมกรณีสูญหาย/ชำรุด/By Design)</div>
+          <div id="saleDisciplineStats"></div>
+        </div>
+        <div class="frame secondary" style="padding:16px 18px;">
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <h3 style="font-size:14px;margin-bottom:2px;">ของที่ยังอยู่ในมือตอนนี้</h3>
+          <div class="chart-sub" style="margin-bottom:12px;">ภาพรวมของที่ยังค้างอยู่ในมือคุณ ณ วันนี้</div>
+          <div id="saleRiskStats"></div>
+        </div>
+        <div class="frame secondary" style="padding:16px 18px;">
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <h3 style="font-size:14px;margin-bottom:2px;">การเลื่อนกำหนดคืน</h3>
+          <div class="chart-sub" style="margin-bottom:12px;">ไม่มีผลต่อคะแนนวินัยการคืน — แสดงไว้เป็นข้อมูลอ้างอิงเท่านั้น</div>
+          <div id="saleDelayStats"></div>
+        </div>
+      </div>
+
+      <div class="section-label">รายการค้างของคุณ</div>
+      <div class="frame secondary table-wrap">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <table>
+          <thead><tr>
+            <th>Document</th><th>สถานะ</th><th>กำหนดคืน</th><th>ลูกค้า</th><th>สินค้า</th><th class="num">มูลค่า (บาท)</th>
+          </tr></thead>
+          <tbody id="saleTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-label">กองหาคนรับผิดชอบ — รหัสไม่พบชื่อ / มีโน้ตชื่อ Sale เดิม</div>
+    <div class="callout orange">รายการด้านล่างนี้เข้าข่าย 2 กรณี: (1) อ้างอิงรหัส Staff ที่ไม่มีชื่อหรือไม่มีในไฟล์รายชื่อล่าสุด อาจเป็นพนักงานที่ลาออกไปแล้ว หรือ (2) Remark มีโน้ตถึงชื่อ Sale คนก่อนหน้า (เช่น "Sale P'...", "เดิมเป็นของ...", "โอนจาก...") ซึ่งอาจไม่ตรงกับเจ้าของรหัสปัจจุบันแล้ว — โปรดตรวจสอบและมอบหมายผู้รับผิดชอบใหม่</div>
+    <div class="frame secondary table-wrap" style="margin-top:12px;">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <table>
+        <thead><tr>
+          <th>รหัส Staff</th><th>Document</th><th>สถานะ</th><th>หมายเหตุ</th><th>กำหนดคืน</th><th>ลูกค้า</th><th class="num">มูลค่า (บาท)</th>
+        </tr></thead>
+        <tbody id="unknownStaffTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ PAGE: WRITE-OFF ============ -->
+  <div class="page" id="page-writeoff">
+    <div class="section-label">รายการรอตัดสินใจเคลียร์ออกจากระบบ</div>
+    <div class="callout orange">รายการเหล่านี้ถูกจัดกลุ่มอัตโนมัติจากคำในช่อง Remark / Objective / Check (เช่น หาย ชำรุด รอทำลาย รอตัดขาย) — เป็นสินค้าที่คาดว่า<strong>เอากลับคืนมาไม่ได้แล้ว</strong> และยังค้างอยู่ในระบบ (Rtn Date ว่าง) รอการตัดสินใจอนุมัติเคลียร์ออกจากบัญชี</div>
+
+    <div class="kpi-grid" id="writeoffKpiGrid" style="margin-top:16px;"></div>
+
+    <div class="section-label">แยกตามหมวดหมู่</div>
+    <div class="frame secondary chart-card">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <h3>มูลค่ารวมแยกตามสาเหตุ</h3>
+      <div id="writeoffCategoryChart"></div>
+    </div>
+
+    <div class="section-label">รายละเอียดรายการ</div>
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>หมวดหมู่</label>
+        <select id="woCategoryFilter" onchange="CSM.renderWriteoffTable()">
+          <option value="">ทั้งหมด</option>
+        </select>
+      </div>
+    </div>
+    <div class="frame secondary table-wrap">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <table>
+        <thead><tr>
+          <th>Document</th><th>หมวดหมู่</th><th>Remark</th><th>Sale</th><th>ลูกค้า</th><th class="num">มูลค่า (บาท)</th>
+        </tr></thead>
+        <tbody id="woTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ PAGE: ACTION PLAN ============ -->
+  <div class="page" id="page-action">
+    <div class="section-label">คำแนะนำระดับภาพรวม CSM</div>
+    <div class="callout">คำแนะนำด้านล่างสร้างจากกฎที่ตั้งไว้ล่วงหน้า จับคู่กับคะแนนแต่ละองค์ประกอบในหน้า "แนวโน้มการคืน" — องค์ประกอบไหนคะแนนต่ำกว่า 70 (ยังไม่ถึงเกณฑ์ "ดี") จะโผล่เป็นคำแนะนำที่นี่ พร้อมตัวเลขจริงจากระบบประกอบ</div>
+    <div id="actionOverviewList" style="margin-top:14px;"></div>
+
+    <div class="section-label">รายการที่ควรเร่งติดตามก่อน (แยกตามคลัง)</div>
+    <div class="callout">แสดงเฉพาะรายการที่ <strong>เกินกำหนดแล้ว</strong> เรียงจากมูลค่ามากไปน้อย (Top 10 ต่อกลุ่ม) — เร่งตามคืนกลุ่ม CSM ก่อนจะช่วยยกคะแนนบริหารจัดการได้มากที่สุด เพราะเป็นของมีค่าที่ยืมไป Test/Demo ส่วน Sample/RMA หมุนช้าโดยธรรมชาติอยู่แล้ว</div>
+    <div id="byProjectStat" style="margin:12px 0;"></div>
+    <div id="priorityGroupsContainer"></div>
+
+    <div class="section-label">Watchlist — Sale ที่ควรจับตาเป็นพิเศษ</div>
+    <div class="callout orange">ติด Watchlist เฉพาะคนที่ <strong>มีของค้างอยู่จริงตอนนี้</strong> และเข้าเงื่อนไขข้อใดข้อหนึ่ง: คืนตรงเวลาต่ำกว่า 50% (ต้องมีประวัติคืนอย่างน้อย 3 รายการ) หรือ มีมูลค่าเกินกำหนดอยู่ตอนนี้ตั้งแต่ 100,000 ฿ ขึ้นไป</div>
+    <div class="frame secondary table-wrap" style="margin-top:12px;">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <table>
+        <thead><tr>
+          <th>Sale</th><th>เหตุผลที่ควรจับตา</th><th class="num">คืนตรงเวลากี่ %</th><th class="num">มูลค่าเกินกำหนด</th><th></th>
+        </tr></thead>
+        <tbody id="watchlistTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-note">ออพติมุส · Optimus (Thailand) Co., Ltd. · optimus.co.th — ข้อมูลอัปเดตอัตโนมัติทุก 10 นาทีขณะเปิดหน้านี้ค้างไว้</div>
+</div>
+
+<div class="modal-overlay hidden" id="docModalOverlay" onclick="if(event.target===this) CSM.closeDocModal()">
+  <div class="frame primary modal-panel">
+    <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+    <button class="modal-close" onclick="CSM.closeDocModal()" aria-label="ปิด">✕</button>
+    <div class="modal-header">
+      <div class="section-label" style="margin:0 0 4px;border:none;padding:0;">Document</div>
+      <h3 id="docModalTitle">—</h3>
+    </div>
+    <div class="modal-summary" id="docModalSummary"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>สถานะ</th><th>Brand</th><th>Model</th><th>Serial</th><th class="num">Qty</th><th class="num">ราคา/หน่วย</th><th class="num">มูลค่ารวม</th><th>Remark</th>
+        </tr></thead>
+        <tbody id="docModalTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="dataIssuesModalOverlay" onclick="if(event.target===this) CSM.closeDataIssuesModal()">
+  <div class="frame primary modal-panel">
+    <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+    <button class="modal-close" onclick="CSM.closeDataIssuesModal()" aria-label="ปิด">✕</button>
+    <div class="modal-header">
+      <div class="section-label" style="margin:0 0 4px;border:none;padding:0;">ตรวจสอบคุณภาพข้อมูล</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <h3 style="font-family:inherit;margin:0;">วันที่ผิดปกติ (เป็นวันที่ในอนาคต)</h3>
+        <button class="btn-refresh" style="background:var(--blue);color:#fff;" onclick="CSM.exportDataIssuesToExcel()">📥 Export เป็น Excel</button>
+      </div>
+    </div>
+    <div class="callout orange" style="margin:12px 0 16px;">รายการด้านล่างนี้มีค่าในคอลัมน์ Date หรือ Rtn Date ที่ตีความแล้วเป็นวันที่ยังไม่มาถึง ซึ่งเป็นไปไม่ได้สำหรับเหตุการณ์ที่เกิดขึ้นแล้ว — มักเกิดจากพิมพ์ปีผิด หรือสลับวัน/เดือนตอนกรอกข้อมูล ไปแก้ไขค่าตรงคอลัมน์ "ค่าที่กรอกในชีท" ในแถวที่ตรงกับ Document นี้ได้เลยค่ะ</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Document</th><th>Serial</th><th>คอลัมน์ที่ผิด</th><th>ค่าที่กรอกในชีท</th><th>ตีความเป็น</th>
+        </tr></thead>
+        <tbody id="dataIssuesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script id="staff-data" type="application/json">[{"code": "OPT49", "num": "49", "name": "Wuttichai (Ped) Parinyanusorn", "dept": "BD", "email": "opt49@optimus.co.th"}, {"code": "OPT13", "num": "13", "name": "Mic Sachaphibulkij", "dept": "BD", "email": "opt13@optimus.co.th"}, {"code": "OPT31", "num": "31", "name": "Wuti Kinghirunwatana", "dept": "BD", "email": "opt31@optimus.co.th"}, {"code": "OPT32", "num": "32", "name": "Surasak (Sak) Khaodee", "dept": "C-Level", "email": "opt32@optimus.co.th"}, {"code": "OPT11", "num": "11", "name": "Siriporn (Ple) Karoonrungsriwong", "dept": "C-Level", "email": "opt11@optimus.co.th"}, {"code": "OPT18", "num": "18", "name": "Chutaporn (Pick) Siamnun", "dept": "CDE", "email": "opt18@optimus.co.th"}, {"code": "OPT20", "num": "20", "name": "Krittaya (Nam) Krittayaphongphun", "dept": "ADM (Vendor Relation)", "email": "opt20@optimus.co.th"}, {"code": "OPT22", "num": "22", "name": "", "dept": "MKT", "email": "opt22@optimus.co.th"}, {"code": "OPT23", "num": "23", "name": "", "dept": "", "email": ""}, {"code": "OPT24", "num": "24", "name": "Rodsukon (Rose) Phoophong", "dept": "CDE", "email": "opt24@optimus.co.th"}, {"code": "OPT25", "num": "25", "name": "", "dept": "CDE", "email": "opt25@optimus.co.th"}, {"code": "OPT26", "num": "26", "name": "Nunthaporn (Noon) Kongsin", "dept": "CDE", "email": "opt26@optimus.co.th"}, {"code": "OPT27", "num": "27", "name": "", "dept": "MKT", "email": "opt27@optimus.co.th"}, {"code": "OPT28", "num": "28", "name": "Shongpon (Aonn) Poumpong", "dept": "C-Level", "email": "opt28@optimus.co.th"}, {"code": "OPT29", "num": "29", "name": "Pitchada (Ice) Pramma", "dept": "MKT", "email": "opt29@optimus.co.th"}, {"code": "OPT75", "num": "75", "name": "Songkran (May) Kanyanan", "dept": "C-Level", "email": "opt75@optimus.co.th"}, {"code": "OPT67", "num": "67", "name": "", "dept": "", "email": ""}, {"code": "OPT66", "num": "66", "name": "Nawaporn (Lookmee) Niamnim", "dept": "CDE", "email": "opt66@optimus.co.th"}, {"code": "OPT68", "num": "68", "name": "Tammawat (Ake) Kaew-Eiad", "dept": "CDE", "email": "opt68@optimus.co.th"}, {"code": "OPT12", "num": "12", "name": "Waraporn (Mai) Mainoi", "dept": "ADM", "email": "opt12@optimus.co.th"}, {"code": "OPT14", "num": "14", "name": "Nathanat (Karn) Almsom", "dept": "ADM", "email": "opt14@optimus.co.th"}, {"code": "OPT15", "num": "15", "name": "Pimchaya (Pim) Choktanaseth", "dept": "ADM", "email": "opt15@optimus.co.th"}, {"code": "OPT16", "num": "16", "name": "Kittika (Fah) Wongvoraareporn", "dept": "C-Level", "email": "opt16@optimus.co.th"}, {"code": "OPT17", "num": "17", "name": "", "dept": "ADM", "email": ""}, {"code": "OPT19", "num": "19", "name": "", "dept": "ADM (HR Office)", "email": "opt19@optimus.co.th"}, {"code": "OPT21", "num": "21", "name": "Panipha (Pang) Punphunga", "dept": "ADM (Vendor Relation)", "email": "opt21@optimus.co.th"}, {"code": "OPT33", "num": "33", "name": "Chaturiyathit (Petch) Kudthalaeng", "dept": "CSD", "email": "opt33@optimus.co.th"}, {"code": "OPT34", "num": "34", "name": "Panrudee (Mangpor) Putthed", "dept": "CSD", "email": "opt34@optimus.co.th"}, {"code": "OPT58", "num": "58", "name": "", "dept": "", "email": ""}, {"code": "OPT36", "num": "36", "name": "Thanaphom (Por) Phayomhon", "dept": "CSD", "email": "opt36@optimus.co.th"}, {"code": "OPT37", "num": "37", "name": "", "dept": "CSD", "email": "opt37@optimus.co.th"}, {"code": "OPT39", "num": "39", "name": "Kobpat (Pat) Atipanjinda", "dept": "CSD", "email": "opt39@optimus.co.th"}, {"code": "OPT61", "num": "61", "name": "Duaen (Hut) Arphawat", "dept": "CDE", "email": "opt61@optimus.co.th"}, {"code": "OPT62", "num": "62", "name": "", "dept": "CDE", "email": "opt62@optimus.co.th"}, {"code": "OPT63", "num": "63", "name": "Thanita (Tha) Thamoonred", "dept": "CDE", "email": "opt63@optimus.co.th"}, {"code": "OPT65", "num": "65", "name": "Sopon (Ab) Konkan", "dept": "MKT", "email": "opt65@optimus.co.th"}, {"code": "OPT64", "num": "64", "name": "", "dept": "MKT", "email": "opt64@optimus.co.th"}, {"code": "OPT35", "num": "35", "name": "Natthakrit (Por) Padungbut", "dept": "CSD", "email": "opt35@optimus.co.th"}, {"code": "OPT38", "num": "38", "name": "", "dept": "", "email": ""}, {"code": "OPT69", "num": "69", "name": "Janjira (Jane) Promsan", "dept": "CDE", "email": "opt69@optimus.co.th"}]</script>
+<script>
+const CSM = (function(){
+
+  // ============ CONFIG ============
+  const SHEET_ID = '1No1wbdt4efFHx8Xu5dL6y7J0AS4e_11r99jFB6J1Rnw';
+  const GID = '1713303484';
+  const STAFF_SHEET_NAME = 'ข้อมูลพนักงาน';
+
+  // ============ SERVER-SIDE DATA LOADER (google.script.run) ============
+  // ดึงข้อมูลผ่านฝั่ง Server (Code.gs) แทน client-side JSONP เพื่อเลี่ยงปัญหา
+  // OAuth/Sandbox dialog ที่เกิดขึ้นเมื่อ Browser ยิง Request ข้ามโดเมนจากใน
+  // iframe ของ Apps Script โดยตรง
+  function runServer(fnName, ...args){
+    return new Promise((resolve, reject)=>{
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(err=>reject(new Error(err && err.message ? err.message : err)))
+        [fnName](...args);
+    });
+  }
+  const AUTO_REFRESH_MS = 10 * 60 * 1000; // 10 minutes
+  const NEAR_DUE_WINDOW_DAYS = 7;
+
+  const IDX = { DATE:0, DOC:1, PERIOD:2, EXPRET_ORIG:3, EXPRET:4, CHECK:7, BRAND:8, MODEL:9,
+                SERIAL:10, STAFF:11, WAREHOUSE:12, CUSTCODE:13, CUSTOMER:14, QTY:15, PRICE:16,
+                OBJECTIVE:17, RTNDATE:18, REMARK:19 };
+
+  const WRITEOFF_RULES = [
+    { key:'lost',    label:'สินค้าสูญหาย',        keywords:['หาย','สูญหาย'], field:'remark' },
+    { key:'damaged', label:'ชำรุด / เสียหาย',      keywords:['ชำรุด','เป็นรอย','เสียหาย'], field:'remark' },
+    { key:'destroy', label:'รอทำลาย',             keywords:['รอทำลาย','รอตัดทำลาย'], field:'remark' },
+    { key:'writeoff',label:'รอตัดขาย / ตัดจำหน่าย', keywords:['รอตัดขาย','รอตัดจำหน่าย','ตัดจำหน่าย'], field:'objective' },
+    { key:'bd',      label:'กลุ่ม BD (ตัดบัญชี)',   keywords:['BD'], field:'wh_check' },
+  ];
+
+  // Remark patterns that indicate a note about the *previous* responsible sale person —
+  // meaning the current Staff code may no longer reflect who actually holds this item.
+  const OLD_SALE_NOTE_KEYWORDS = ["sale p'", 'sale คุณ', 'เดิมเป็นของ', 'โอนจาก'];
+  function hasOldSaleNote(remark){
+    if (!remark) return false;
+    const low = String(remark).toLowerCase();
+    return OLD_SALE_NOTE_KEYWORDS.some(k=>low.includes(k));
+  }
+  function isByDesign(item){
+    return (item.check||'').toLowerCase().includes('by design');
+  }
+  function isPendingInspection(item){
+    return (item.remark||'').includes('รอตรวจสอบ');
+  }
+
+  let STAFF = [];
+  let rows = [];        // raw parsed line-items (with valid Document)
+  let lastUpdated = null;
+  let autoTimer = null;
+  let currentPage = 'overview';
+
+  // ============ GOOGLE SHEETS LOADER (JSONP via gviz — avoids CORS entirely) ============
+  // fetch() against docs.google.com's CSV export endpoint is blocked by the browser because
+  // Google does not send Access-Control-Allow-Origin headers on that endpoint — this is what
+  // caused "Failed to fetch" even though the sheet is shared "Anyone with the link". Loading
+  // the Google Visualization API endpoint via a <script> tag sidesteps CORS entirely, because
+  // script tags are not subject to the same-origin policy the way fetch()/XHR are.
+  let __gvizSeq = 0;
+  function fetchGviz({gid, sheetName}){
+    return new Promise((resolve, reject)=>{
+      const cbName = '__gvizCB_' + (Date.now()) + '_' + (__gvizSeq++);
+      const script = document.createElement('script');
+      const timeout = setTimeout(()=>{ cleanup(); reject(new Error('หมดเวลาโหลดข้อมูลจาก Google Sheet')); }, 20000);
+      function cleanup(){
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+        clearTimeout(timeout);
+      }
+      window[cbName] = function(resp){
+        cleanup();
+        if (!resp || resp.status === 'error'){
+          const msg = (resp && resp.errors && resp.errors[0] && resp.errors[0].detailed_message) || 'Google Sheet ตอบกลับ error (เช็คชื่อ Tab / สิทธิ์การแชร์)';
+          reject(new Error(msg));
+          return;
+        }
+        resolve(resp.table);
+      };
+      let url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?headers=1&tqx=out:json;responseHandler:${cbName}`;
+      if (gid !== undefined && gid !== null) url += '&gid=' + encodeURIComponent(gid);
+      if (sheetName) url += '&sheet=' + encodeURIComponent(sheetName);
+      url += '&_ts=' + Date.now();
+      script.onerror = function(){ cleanup(); reject(new Error('โหลด Sheet ไม่สำเร็จ (เครือข่ายขัดข้อง หรือ URL ไม่ถูกต้อง)')); };
+      script.src = url;
+      document.body.appendChild(script);
+    });
+  }
+
+  function gvizTableToRows(table){
+    if (!table || !table.rows) return [];
+    return table.rows.map(r => (r.c||[]).map(cell=>{
+      if (!cell) return '';
+      if (cell.f !== undefined && cell.f !== null && cell.f !== '') return cell.f;
+      if (cell.v === null || cell.v === undefined) return '';
+      return String(cell.v);
+    }));
+  }
+
+  // ============ DATE / NUMBER HELPERS ============
+  function parseDateFlexible(str, preferred){
+    if (!str) return null;
+    const s = String(str).trim();
+    if (!s || s.startsWith('#')) return null;
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (!m) return null;
+    let a = parseInt(m[1],10), b = parseInt(m[2],10), y = parseInt(m[3],10);
+    if (y < 100) y += 2000;
+    let day, month;
+    if (a > 12 && b <= 12){ day = a; month = b; }
+    else if (b > 12 && a <= 12){ month = a; day = b; }
+    else if (a <= 12 && b <= 12){
+      if (preferred === 'MDY'){ month = a; day = b; } else { day = a; month = b; }
+    } else return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const d = new Date(y, month-1, day);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
+
+  function parsePrice(s){
+    if (!s) return 0;
+    let cleaned = String(s).replace(/[, ]/g,'');
+    if (/^-?$/.test(cleaned) || /^n\/a$/i.test(cleaned)) return 0;
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function daysDiff(a,b){ return Math.round((a.getTime() - b.getTime()) / 86400000); }
+
+  function escapeHtml(s){
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(s){
+    return escapeHtml(s).replace(/`/g,'&#96;');
+  }
+
+  function fmtMoney(n){
+    return Math.round(n).toLocaleString('th-TH');
+  }
+  function fmtDate(d){
+    if (!d) return '—';
+    return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'});
+  }
+  function monthKey(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+  function monthLabel(key){
+    const [y,m] = key.split('-').map(Number);
+    const d = new Date(y, m-1, 1);
+    return d.toLocaleDateString('th-TH',{month:'short',year:'2-digit'});
+  }
+
+  // ============ WRITE-OFF CLASSIFICATION ============
+  function classifyWriteOff(item){
+    const remark = (item.remark||'');
+    const obj = (item.objective||'');
+    const whchk = ((item.warehouse||'') + ' ' + (item.check||'')).toUpperCase();
+    for (const rule of WRITEOFF_RULES){
+      let hay = rule.field === 'remark' ? remark : rule.field === 'objective' ? obj : whchk;
+      if (rule.field === 'wh_check'){
+        if (rule.keywords.some(k => whchk.split(/\s+/).includes(k))) return rule;
+      } else {
+        if (rule.keywords.some(k => hay.includes(k))) return rule;
+      }
+    }
+    return null;
+  }
+
+  // ============ BUILD ITEM ============
+  function buildItem(cols){
+    const doc = (cols[IDX.DOC]||'').trim();
+    if (!doc) return null;
+    const dateOpenedRaw = (cols[IDX.DATE]||'').trim();
+    const dateOpened = parseDateFlexible(cols[IDX.DATE], 'DMY');
+    const origDueDate = parseDateFlexible(cols[IDX.EXPRET_ORIG], 'DMY');
+    const dueDate = parseDateFlexible(cols[IDX.EXPRET], 'DMY');
+    const rtnRaw = (cols[IDX.RTNDATE]||'').trim();
+    const rtnDate = rtnRaw ? parseDateFlexible(rtnRaw, 'DMY') : null;
+    const price = parsePrice(cols[IDX.PRICE]);
+    const qty = parseInt(cols[IDX.QTY],10) || 0;
+    const item = {
+      doc, dateOpenedRaw, dateOpened, origDueDate, dueDate, rtnRaw, rtnDate,
+      check:(cols[IDX.CHECK]||'').trim(),
+      brand:(cols[IDX.BRAND]||'').trim(),
+      model:(cols[IDX.MODEL]||'').trim(),
+      serial:(cols[IDX.SERIAL]||'').trim(),
+      staffCode:(cols[IDX.STAFF]||'').trim(),
+      warehouse:(cols[IDX.WAREHOUSE]||'').trim(),
+      customer:(cols[IDX.CUSTOMER]||'').trim(),
+      qty, price, total: price*qty,
+      objective:(cols[IDX.OBJECTIVE]||'').trim(),
+      remark:(cols[IDX.REMARK]||'').trim(),
+    };
+    item.outstanding = (rtnRaw === '');
+    item.writeoffRule = item.outstanding ? classifyWriteOff(item) : null;
+    item.oldSaleNote = item.outstanding ? hasOldSaleNote(item.remark) : false;
+    item.byDesign = isByDesign(item);
+    item.pendingInspection = item.outstanding ? isPendingInspection(item) : false;
+    item.wasDelayed = !!(origDueDate && dueDate && dueDate > origDueDate);
+    item.delayDays = item.wasDelayed ? daysDiff(dueDate, origDueDate) : 0;
+    if (item.outstanding && item.pendingInspection){
+      item.diffDays = null; item.status = 'pending_inspection';
+    } else if (item.outstanding && item.dueDate){
+      const today = new Date(); today.setHours(0,0,0,0);
+      item.diffDays = daysDiff(today, item.dueDate);
+      item.status = item.diffDays >= 0 ? 'overdue' : (item.diffDays >= -NEAR_DUE_WINDOW_DAYS ? 'near' : 'ok');
+    } else if (item.outstanding){
+      item.diffDays = null; item.status = 'unknown';
+    } else {
+      item.diffDays = null; item.status = 'closed';
+    }
+    return item;
+  }
+
+  // ============ STAFF MAPPING ============
+  function findStaffByCode(code){
+    if (!code) return null;
+    const num = String(code).replace(/\D/g,'').replace(/^0+/,'');
+    if (!num) return null;
+    return STAFF.find(s => s.num === num) || null;
+  }
+
+  // ============ FETCH ============
+  function parseStaffRows(staffRows){
+    return staffRows.map(r=>{
+      const code = (r[0]||'').trim();
+      const name = (r[1]||'').trim();
+      const dept = (r[2]||'').trim();
+      const email = (r[3]||'').trim();
+      const m = code.match(/(\d+)/);
+      const num = m ? m[1].replace(/^0+/,'') : '';
+      return {code, num, name, dept, email};
+    }).filter(s=>s.code);
+  }
+
+  async function fetchData(manual){
+    const dot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const overlay = document.getElementById('loadingOverlay');
+    const btn = document.getElementById('btnRefresh');
+    dot.className = 'dot loading';
+    if (manual){ overlay.classList.remove('hidden'); btn.disabled = true; }
+    let staffWarning = '';
+    try {
+      const body = await runServer('getSheetData', GID, null);
+      const built = [];
+      for (const cols of body){
+        const it = buildItem(cols);
+        if (it) built.push(it);
+      }
+      rows = built;
+
+      // Load the live Staff tab too — if it fails, keep whatever STAFF we already have
+      // (embedded fallback on first load, or last-known-good data on later refreshes)
+      try {
+        const staffRows = await runServer('getSheetData', null, STAFF_SHEET_NAME);
+        const parsed = parseStaffRows(staffRows);
+        if (parsed.length){ STAFF = parsed; populateSaleDropdown(); }
+        else staffWarning = ' · ⚠️ อ่าน Tab พนักงานได้แต่ไม่พบข้อมูล ใช้รายชื่อล่าสุดที่เคยโหลดไว้แทน';
+      } catch(staffErr){
+        console.warn('Staff sheet load failed:', staffErr);
+        staffWarning = ' · ⚠️ โหลด Tab "' + STAFF_SHEET_NAME + '" ไม่สำเร็จ (' + (staffErr.message||staffErr) + ') ใช้รายชื่อล่าสุดที่เคยโหลดไว้แทน';
+      }
+
+      lastUpdated = new Date();
+      dot.className = 'dot';
+      statusText.textContent = 'อัปเดตล่าสุด: ' + lastUpdated.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}) + ` (${rows.length.toLocaleString()} รายการ)` + staffWarning;
+      renderAll();
+    } catch (err){
+      dot.className = 'dot error';
+      statusText.textContent = 'ดึงข้อมูลไม่สำเร็จ — ' + (err.message||err) + ' (เช็คว่า Sheet แชร์เป็น "Anyone with the link" แล้วหรือยัง)';
+      console.error(err);
+    } finally {
+      if (manual){ overlay.classList.add('hidden'); btn.disabled = false; }
+      else { overlay.classList.add('hidden'); }
+    }
+  }
+
+  function refresh(manual){ fetchData(manual); }
+
+  // ============ PAGE NAV ============
+  function showPage(name){
+    currentPage = name;
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+name).classList.add('active');
+    document.querySelectorAll('.nav button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.page === name);
+    });
+  }
+
+  // ============ SIMPLE SVG CHARTS ============
+  function svgEl(tag, attrs){
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  function barChart(container, {labels, values, color, height=200, valueFmt}){
+    container.innerHTML = '';
+    if (!labels.length){ container.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
+    const W = Math.max(container.clientWidth || 600, labels.length * 70);
+    const H = height;
+    const padL = 46, padB = 34, padT = 14, padR = 14;
+    const max = Math.max(1, ...values);
+    const svg = svgEl('svg', {width:'100%', height:H, viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMinYMin meet'});
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const bw = plotW / labels.length * 0.6;
+    const gap = plotW / labels.length;
+    // gridlines
+    for (let g=0; g<=4; g++){
+      const y = padT + plotH - (g/4)*plotH;
+      svg.appendChild(svgEl('line',{x1:padL,y1:y,x2:W-padR,y2:y,stroke:'#E4EDF5','stroke-width':1}));
+      const val = (g/4)*max;
+      const t = svgEl('text',{x:padL-6,y:y+3,'text-anchor':'end','font-size':10,fill:'#8AA0B4'});
+      t.textContent = valueFmt ? valueFmt(val) : Math.round(val);
+      svg.appendChild(t);
+    }
+    labels.forEach((lab,i)=>{
+      const v = values[i];
+      const h = (v/max) * plotH;
+      const x = padL + i*gap + (gap-bw)/2;
+      const y = padT + plotH - h;
+      svg.appendChild(svgEl('rect',{x, y, width:bw, height:h, fill:color}));
+      const vt = svgEl('text',{x:x+bw/2, y:y-4, 'text-anchor':'middle','font-size':10.5,fill:'#0D1B2A','font-weight':600});
+      vt.textContent = valueFmt ? valueFmt(v) : v;
+      svg.appendChild(vt);
+      const lt = svgEl('text',{x:x+bw/2, y:H-padB+16, 'text-anchor':'middle','font-size':10.5,fill:'#4A5A6A'});
+      lt.textContent = lab;
+      svg.appendChild(lt);
+    });
+    container.appendChild(svg);
+  }
+
+  function lineChart(container, {labels, series, height=220, yFormat}){
+    container.innerHTML = '';
+    if (!labels.length){ container.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
+    const W = Math.max(container.clientWidth || 700, labels.length * 60);
+    const H = height;
+    const padL = 46, padB = 30, padT = 16, padR = 16;
+    let allVals = [];
+    series.forEach(s=> allVals = allVals.concat(s.values));
+    const max = Math.max(1, ...allVals);
+    const min = Math.min(0, ...allVals);
+    const svg = svgEl('svg', {width:'100%', height:H, viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMinYMin meet'});
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const range = (max - min) || 1;
+    const xStep = labels.length > 1 ? plotW/(labels.length-1) : 0;
+    function xy(i,v){
+      const x = padL + i*xStep;
+      const y = padT + plotH - ((v-min)/range)*plotH;
+      return [x,y];
+    }
+    for (let g=0; g<=4; g++){
+      const val = min + (g/4)*range;
+      const y = padT + plotH - (g/4)*plotH;
+      svg.appendChild(svgEl('line',{x1:padL,y1:y,x2:W-padR,y2:y,stroke:'#E4EDF5','stroke-width':1}));
+      const t = svgEl('text',{x:padL-6,y:y+3,'text-anchor':'end','font-size':10,fill:'#8AA0B4'});
+      t.textContent = yFormat ? yFormat(val) : Math.round(val);
+      svg.appendChild(t);
+    }
+    labels.forEach((lab,i)=>{
+      if (labels.length > 14 && i % Math.ceil(labels.length/14) !== 0) return;
+      const [x] = xy(i,min);
+      const t = svgEl('text',{x, y:H-padB+16,'text-anchor':'middle','font-size':10,fill:'#4A5A6A'});
+      t.textContent = lab;
+      svg.appendChild(t);
+    });
+    series.forEach(s=>{
+      let d = '';
+      s.values.forEach((v,i)=>{
+        const [x,y] = xy(i,v);
+        d += (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+      });
+      svg.appendChild(svgEl('path',{d, fill:'none', stroke:s.color, 'stroke-width':2.4}));
+      s.values.forEach((v,i)=>{
+        const [x,y] = xy(i,v);
+        svg.appendChild(svgEl('circle',{cx:x,cy:y,r:3.2,fill:s.color}));
+      });
+    });
+    container.appendChild(svg);
+    if (series.length > 1){
+      const legend = document.createElement('div');
+      legend.className = 'chart-legend';
+      series.forEach(s=>{
+        legend.innerHTML += `<span><i style="background:${s.color}"></i>${s.name}</span>`;
+      });
+      container.appendChild(legend);
+    }
+  }
+
+  function comboBarLine(container, {labels, barsA, barsB, line, height=240}){
+    container.innerHTML = '';
+    if (!labels.length){ container.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
+    const W = Math.max(container.clientWidth || 700, labels.length * 60);
+    const H = height;
+    const padL = 46, padB = 30, padT = 16, padR = 16;
+    const maxBar = Math.max(1, ...barsA, ...barsB);
+    const maxLine = Math.max(1, ...line);
+    const svg = svgEl('svg', {width:'100%', height:H, viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'xMinYMin meet'});
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const gap = plotW/labels.length;
+    const bw = gap*0.32;
+    for (let g=0; g<=4; g++){
+      const y = padT + plotH - (g/4)*plotH;
+      svg.appendChild(svgEl('line',{x1:padL,y1:y,x2:W-padR,y2:y,stroke:'#E4EDF5','stroke-width':1}));
+      const t = svgEl('text',{x:padL-6,y:y+3,'text-anchor':'end','font-size':10,fill:'#8AA0B4'});
+      t.textContent = Math.round((g/4)*maxBar);
+      svg.appendChild(t);
+    }
+    labels.forEach((lab,i)=>{
+      const cx = padL + i*gap + gap/2;
+      const hA = (barsA[i]/maxBar)*plotH, hB = (barsB[i]/maxBar)*plotH;
+      svg.appendChild(svgEl('rect',{x:cx-bw-2,y:padT+plotH-hA,width:bw,height:hA,fill:'#0050A0'}));
+      svg.appendChild(svgEl('rect',{x:cx+2,y:padT+plotH-hB,width:bw,height:hB,fill:'#F08C1E'}));
+      if (labels.length <= 14 || i % Math.ceil(labels.length/14) === 0){
+        const t = svgEl('text',{x:cx,y:H-padB+16,'text-anchor':'middle','font-size':10,fill:'#4A5A6A'});
+        t.textContent = lab;
+        svg.appendChild(t);
+      }
+    });
+    let d = '';
+    labels.forEach((lab,i)=>{
+      const cx = padL + i*gap + gap/2;
+      const y = padT + plotH - (line[i]/maxLine)*plotH;
+      d += (i===0?'M':'L') + cx.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    });
+    svg.appendChild(svgEl('path',{d, fill:'none', stroke:'#0D1B2A','stroke-width':2.4,'stroke-dasharray':'0'}));
+    labels.forEach((lab,i)=>{
+      const cx = padL + i*gap + gap/2;
+      const y = padT + plotH - (line[i]/maxLine)*plotH;
+      svg.appendChild(svgEl('circle',{cx,cy:y,r:3,fill:'#0D1B2A'}));
+    });
+    container.appendChild(svg);
+    const legend = document.createElement('div');
+    legend.className = 'chart-legend';
+    legend.innerHTML = `<span><i style="background:#0050A0"></i>เปิดใหม่</span><span><i style="background:#F08C1E"></i>ปิดเคสแล้ว</span><span><i style="background:#0D1B2A"></i>ยอดค้างสะสม</span>`;
+    container.appendChild(legend);
+  }
+
+  // ============ RENDER: KPI helpers ============
+  function kpiCard(label, value, opts){
+    opts = opts||{};
+    const cls = opts.cls || '';
+    const sub = opts.sub ? `<div class="sub">${opts.sub}</div>` : '';
+    const mark = opts.primary ? 'primary' : 'secondary';
+    return `<div class="frame ${mark} kpi">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <div class="lbl">${label}</div>
+      <div class="val ${cls}">${value}</div>
+      ${sub}
+    </div>`;
+  }
+
+  function statusBadge(status){
+    const map = {
+      overdue:['เกินกำหนด','overdue'], near:['ใกล้ครบกำหนด','near'], ok:['ยังไม่ถึงกำหนด','ok'],
+      unknown:['ไม่ทราบวันครบกำหนด','unknown'], closed:['ปิดเคสแล้ว','ok'],
+      pending_inspection:['รอตรวจสอบสินค้า','pending']
+    };
+    const [txt,cls] = map[status] || ['—','unknown'];
+    return `<span class="badge ${cls}">${txt}</span>`;
+  }
+  function extraBadges(item){
+    let out = '';
+    if (item.byDesign) out += ' <span class="badge bydesign">By Design</span>';
+    if (item.wasDelayed) out += ' <span class="badge delayed">🔄 เคยเลื่อนกำหนดคืน</span>';
+    return out;
+  }
+  const STATUS_ORDER = {overdue:0, near:1, pending_inspection:2, unknown:3, ok:4};
+
+  // ============ DERIVED: outstanding rows ============
+  function outstandingRows(){ return rows.filter(r=>r.outstanding); }
+
+  // ============ OVERVIEW PAGE ============
+  function renderOverview(){
+    const out = outstandingRows();
+    const overdue = out.filter(r=>r.status==='overdue');
+    const near = out.filter(r=>r.status==='near');
+    const writeoff = out.filter(r=>r.writeoffRule);
+    const pendingInsp = out.filter(r=>r.status==='pending_inspection');
+    const totalValue = out.reduce((s,r)=>s+r.total,0);
+    const overdueValue = overdue.reduce((s,r)=>s+r.total,0);
+    const nearValue = near.reduce((s,r)=>s+r.total,0);
+    const pendingInspValue = pendingInsp.reduce((s,r)=>s+r.total,0);
+    const uniqueDocs = new Set(out.map(r=>r.doc)).size;
+    const delayedDocs = new Set(out.filter(r=>r.wasDelayed).map(r=>r.doc)).size;
+
+    document.getElementById('kpiGrid').innerHTML = [
+      kpiCard('เอกสารค้างคืนทั้งหมด', uniqueDocs.toLocaleString(), {sub: out.length.toLocaleString()+' รายการ (Serial)', primary:true}),
+      kpiCard('มูลค่ารวมค้างคืน', fmtMoney(totalValue)+' ฿'),
+      kpiCard('เกินกำหนดแล้ว', overdue.length.toLocaleString()+' รายการ', {cls:'red', sub: fmtMoney(overdueValue)+' ฿'}),
+      kpiCard('ใกล้ครบกำหนด (≤7 วัน)', near.length.toLocaleString()+' รายการ', {cls:'amber', sub: fmtMoney(nearValue)+' ฿'}),
+      kpiCard('รอเคลียร์ออกจากระบบ', writeoff.length.toLocaleString()+' รายการ', {cls:'red', sub:'ดูรายละเอียดในแท็บ "รอเคลียร์ออกจากระบบ"'}),
+      kpiCard('รอตรวจสอบสินค้า (คืนแล้ว รอ QC)', pendingInsp.length.toLocaleString()+' รายการ', {sub: fmtMoney(pendingInspValue)+' ฿'}),
+      kpiCard('เอกสารที่เคยเลื่อนกำหนดคืน', delayedDocs.toLocaleString()+' เอกสาร', {sub:'เทียบ Expected Return Date เดิม กับ Exp Ret ล่าสุด'}),
+    ].join('');
+
+    // ageing buckets — exclude "รอตรวจสอบสินค้า" (not really waiting on Sale anymore)
+    const ageingBase = out.filter(r=>r.status!=='pending_inspection');
+    const buckets = [
+      {label:'ยังไม่ถึงกำหนด', test:d=>d===null?false:d<0},
+      {label:'0-30 วัน', test:d=>d!==null && d>=0 && d<=30},
+      {label:'31-60 วัน', test:d=>d!==null && d>30 && d<=60},
+      {label:'61-90 วัน', test:d=>d!==null && d>60 && d<=90},
+      {label:'90+ วัน', test:d=>d!==null && d>90},
+    ];
+    const counts = buckets.map(b=> ageingBase.filter(r=>b.test(r.diffDays)).length);
+    barChart(document.getElementById('ageingChart'), {
+      labels: buckets.map(b=>b.label), values: counts, color:'#0050A0', height:200
+    });
+
+    // warehouse filter options
+    const whSel = document.getElementById('ovWarehouseFilter');
+    const whs = Array.from(new Set(out.map(r=>r.warehouse).filter(Boolean))).sort();
+    const currentWh = whSel.value;
+    whSel.innerHTML = '<option value="">ทั้งหมด</option>' + whs.map(w=>`<option value="${w}">${w}</option>`).join('');
+    whSel.value = currentWh;
+
+    renderWarehouseBreakdown(out, totalValue);
+    renderOverviewTable();
+  }
+
+  function renderWarehouseBreakdown(out, totalValue){
+    const byWh = new Map();
+    out.forEach(r=>{
+      const wh = r.warehouse || '(ไม่ระบุ)';
+      if (!byWh.has(wh)) byWh.set(wh, {docs:new Set(), items:0, value:0});
+      const w = byWh.get(wh);
+      w.docs.add(r.doc); w.items++; w.value += r.total;
+    });
+    const arr = Array.from(byWh.entries()).map(([wh,w])=>({
+      wh, docs:w.docs.size, items:w.items, value:w.value,
+      pct: totalValue ? (w.value/totalValue)*100 : 0
+    })).sort((a,b)=>b.value-a.value);
+    const tbody = document.getElementById('warehouseBreakdownBody');
+    tbody.innerHTML = arr.length ? arr.map(w=>`
+      <tr>
+        <td><strong>${escapeHtml(w.wh)}</strong></td>
+        <td class="num">${w.docs.toLocaleString()}</td>
+        <td class="num">${w.items.toLocaleString()}</td>
+        <td class="num">${fmtMoney(w.value)}</td>
+        <td class="num">${w.pct.toFixed(1)}%</td>
+      </tr>`).join('') : '<tr><td colspan="5"><div class="empty-state">ไม่มีข้อมูล</div></td></tr>';
+  }
+
+  function renderOverviewTable(){
+    const out = outstandingRows();
+    const statusF = document.getElementById('ovStatusFilter').value;
+    const whF = document.getElementById('ovWarehouseFilter').value;
+    const q = document.getElementById('ovSearch').value.trim().toLowerCase();
+
+    // group by document for the table (one row per document)
+    const byDoc = new Map();
+    out.forEach(r=>{
+      if (!byDoc.has(r.doc)) byDoc.set(r.doc, []);
+      byDoc.get(r.doc).push(r);
+    });
+    let docsArr = Array.from(byDoc.entries()).map(([doc, items])=>{
+      const worst = items.reduce((a,b)=>{
+        const order = STATUS_ORDER;
+        return (order[a.status] ?? 9) <= (order[b.status] ?? 9) ? a : b;
+      });
+      const value = items.reduce((s,r)=>s+r.total,0);
+      const staff = findStaffByCode(items[0].staffCode);
+      return {
+        doc, status: worst.status, dueDate: worst.dueDate,
+        staffName: staff ? (staff.name || staff.code) : (items[0].staffCode || '—'),
+        customer: items[0].customer, warehouse: items[0].warehouse, value,
+        byDesign: items.some(i=>i.byDesign), wasDelayed: items.some(i=>i.wasDelayed)
+      };
+    });
+
+    if (statusF) docsArr = docsArr.filter(d=>d.status===statusF);
+    if (whF) docsArr = docsArr.filter(d=>d.warehouse===whF);
+    if (q) docsArr = docsArr.filter(d=> d.doc.toLowerCase().includes(q) || (d.customer||'').toLowerCase().includes(q));
+
+    docsArr.sort((a,b)=>{
+      const order = STATUS_ORDER;
+      return (order[a.status]??9) - (order[b.status]??9);
+    });
+
+    const tbody = document.getElementById('ovTableBody');
+    if (!docsArr.length){
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">ไม่พบรายการตามเงื่อนไข</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = docsArr.slice(0,500).map(d=>`
+      <tr>
+        <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(d.doc)}')">${escapeHtml(d.doc)}</button></td>
+        <td>${statusBadge(d.status)}${extraBadges(d)}</td>
+        <td>${fmtDate(d.dueDate)}</td>
+        <td>${escapeHtml(d.staffName)}</td>
+        <td>${escapeHtml(d.customer)||'—'}</td>
+        <td>${escapeHtml(d.warehouse)||'—'}</td>
+        <td class="num">${fmtMoney(d.value)}</td>
+      </tr>`).join('');
+  }
+
+  // ============ MANAGEMENT SCORE (composite grade) ============
+  let trendsWarehouseFilter = ''; // '' = all warehouses
+  function trendsRows(){
+    return trendsWarehouseFilter ? rows.filter(r=>r.warehouse===trendsWarehouseFilter) : rows;
+  }
+  function setTrendsWarehouseFilter(v){
+    trendsWarehouseFilter = v;
+    renderTrends();
+  }
+  function populateTrendsWarehouseFilter(){
+    const sel = document.getElementById('trendsWarehouseFilter');
+    const whs = Array.from(new Set(rows.map(r=>r.warehouse).filter(Boolean))).sort();
+    sel.innerHTML = '<option value="">ทั้งหมดทุกคลัง</option>' + whs.map(w=>`<option value="${w}">${w}</option>`).join('');
+    if (trendsWarehouseFilter && !whs.includes(trendsWarehouseFilter)) trendsWarehouseFilter = '';
+    sel.value = trendsWarehouseFilter;
+  }
+  function lastNMonths(n){
+    const arr = [];
+    const now = new Date();
+    for (let i=n-1;i>=0;i--){
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      arr.push(monthKey(d));
+    }
+    return arr;
+  }
+  function scoreBand(value, bands){
+    for (const [th, sc] of bands){ if (value <= th) return sc; }
+    return bands[bands.length-1][1];
+  }
+  function outstandingAsOf(cutoff){
+    return trendsRows().filter(r=> r.dateOpened && r.dateOpened <= cutoff && (!r.rtnDate || r.rtnDate > cutoff));
+  }
+  function writeoffRatioAsOf(cutoff){
+    const asOf = outstandingAsOf(cutoff);
+    const total = asOf.reduce((s,r)=>s+r.total,0);
+    if (!total) return 0;
+    const wo = asOf.filter(r=>classifyWriteOff(r)).reduce((s,r)=>s+r.total,0);
+    return wo/total;
+  }
+  function computeWindowMetrics(monthKeys){
+    const src = trendsRows();
+    const closed = src.filter(r=>!r.outstanding && r.rtnDate);
+    const returnedClean = closed.filter(r=>classifyWriteOff(r)===null && !r.byDesign && r.dueDate);
+    let total=0, onTime=0, lateSum=0, lateCount=0;
+    returnedClean.forEach(r=>{
+      const k = monthKey(r.rtnDate);
+      if (!monthKeys.includes(k)) return;
+      total++;
+      const diff = daysDiff(r.rtnDate, r.dueDate);
+      if (diff<=0) onTime++; else { lateSum+=diff; lateCount++; }
+    });
+    const onTimeRate = total ? (onTime/total)*100 : null;
+    const avgLate = lateCount ? (lateSum/lateCount) : 0;
+    let net = 0;
+    src.forEach(r=>{ if (r.dateOpened && monthKeys.includes(monthKey(r.dateOpened))) net++; });
+    src.filter(r=>!r.outstanding && r.rtnDate).forEach(r=>{ if (monthKeys.includes(monthKey(r.rtnDate))) net--; });
+    return {onTimeRate, avgLate, net, hasLate: lateCount>0};
+  }
+  function scoreOnTime(rate){ return rate === null ? 70 : Math.round(rate); }
+  function scoreBacklogNet(net, avgMonthlyVolume){
+    if (!avgMonthlyVolume) return 70;
+    const ratio = net / avgMonthlyVolume;
+    return scoreBand(ratio, [[-0.15,100],[0,80],[0.15,50],[0.35,30],[Infinity,10]]);
+  }
+  function scoreLateDays(avgLate, hasLate, prevAvgLate){
+    if (!hasLate) return 100;
+    const delta = avgLate - (prevAvgLate ?? avgLate);
+    return scoreBand(delta, [[-5,100],[0,75],[5,50],[15,25],[Infinity,10]]);
+  }
+  function scoreWriteoffRatio(ratio){
+    return scoreBand(ratio, [[0.03,100],[0.08,80],[0.15,55],[0.25,30],[Infinity,10]]);
+  }
+  function scoreGrade(score){
+    if (score < 50) return {label:'แย่', cls:'red'};
+    if (score < 70) return {label:'พอใช้', cls:'amber'};
+    if (score < 85) return {label:'ดี', cls:'green'};
+    return {label:'ดีมาก', cls:'green'};
+  }
+  function computeManagementScore(){
+    const last6 = lastNMonths(6);
+    const last3 = last6.slice(3);
+    const prev3 = last6.slice(0,3);
+    const curM = computeWindowMetrics(last3);
+    const prevM = computeWindowMetrics(prev3);
+
+    let totalVol = 0;
+    const src = trendsRows();
+    src.forEach(r=>{ if (r.dateOpened && last6.includes(monthKey(r.dateOpened))) totalVol++; });
+    src.filter(r=>!r.outstanding && r.rtnDate).forEach(r=>{ if(last6.includes(monthKey(r.rtnDate))) totalVol++; });
+    const avgMonthlyVolume = totalVol / 6 || 1;
+
+    const now = new Date();
+    const cutoffPrev = new Date(now.getFullYear(), now.getMonth()-3, now.getDate());
+
+    const curWoRatio = writeoffRatioAsOf(now);
+    const prevWoRatio = writeoffRatioAsOf(cutoffPrev);
+
+    const A = scoreOnTime(curM.onTimeRate);
+    const B = scoreBacklogNet(curM.net, avgMonthlyVolume);
+    const C = scoreLateDays(curM.avgLate, curM.hasLate, prevM.avgLate);
+    const D = scoreWriteoffRatio(curWoRatio);
+    const composite = Math.round(0.40*A + 0.25*B + 0.20*C + 0.15*D);
+
+    const Aprev = scoreOnTime(prevM.onTimeRate);
+    const Bprev = scoreBacklogNet(prevM.net, avgMonthlyVolume);
+    const Dprev = scoreWriteoffRatio(prevWoRatio);
+    // Prior period's late-day trend needs a window before prev3, which we don't track separately —
+    // reuse the current C score as a neutral stand-in so the delta isn't skewed by an undefined baseline.
+    const compositePrev = Math.round(0.40*Aprev + 0.25*Bprev + 0.20*C + 0.15*Dprev);
+    const delta = composite - compositePrev;
+
+    return {
+      composite, delta, grade: scoreGrade(composite),
+      components: [
+        {label:'คืนตรงเวลากี่ %', value: curM.onTimeRate!==null ? Math.round(curM.onTimeRate)+'%' : 'ไม่มีข้อมูล', score:A, weight:40},
+        {label:'ของค้างสะสม เพิ่มขึ้นหรือลดลง', value: curM.net<0?'ลดลง':(curM.net===0?'ทรงตัว':'เพิ่มขึ้น'), score:B, weight:25},
+        {label:'วันคืนช้าเฉลี่ย', value: curM.hasLate ? Math.round(curM.avgLate)+' วัน' : 'ไม่มีรายการคืนช้า', score:C, weight:20},
+        {label:'ค้างตัดสินใจ (หาย/ชำรุด)', value: Math.round(curWoRatio*100)+'% ของมูลค่าค้าง', score:D, weight:15},
+      ]
+    };
+  }
+  function renderManagementScore(){
+    const m = computeManagementScore();
+    const el = document.getElementById('mgmtScoreCard');
+    const trendDir = m.delta >= 3 ? 'up' : (m.delta <= -3 ? 'down' : 'flat');
+    const trendIcon = trendDir === 'up' ? '▲' : (trendDir === 'down' ? '▼' : '■');
+    const trendText = trendDir === 'up' ? 'ดีขึ้นจาก 3 เดือนก่อนหน้า' : (trendDir === 'down' ? 'แย่ลงจาก 3 เดือนก่อนหน้า' : 'ทรงตัวเมื่อเทียบ 3 เดือนก่อนหน้า');
+    const scopeLabel = trendsWarehouseFilter ? `คะแนนบริหารจัดการ CSM — เฉพาะ Warehouse: ${escapeHtml(trendsWarehouseFilter)}` : 'คะแนนบริหารจัดการ CSM โดยรวม (ทุกคลัง)';
+    el.innerHTML = `
+      <div class="frame primary" style="padding:20px 22px;">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">${scopeLabel}</div>
+            <div style="display:flex;align-items:baseline;gap:10px;">
+              <span style="font-size:30px;font-weight:700;color:var(--${m.grade.cls});">${m.grade.label}</span>
+              <span style="font-size:14px;color:var(--ink-soft);">(${m.composite} / 100)</span>
+            </div>
+          </div>
+          <div class="mgmt-trend-badge ${trendDir}">${trendIcon} ${trendText} (${m.delta>=0?'+':''}${m.delta} คะแนน)</div>
+        </div>
+        <div class="mgmt-grid">
+          ${m.components.map(c=>`
+            <div class="mgmt-metric">
+              <div class="l">${escapeHtml(c.label)}</div>
+              <div class="v">${escapeHtml(c.value)}</div>
+              <div class="w">น้ำหนัก ${c.weight}%</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // ============ TRENDS PAGE ============
+  function renderTrends(){
+    populateTrendsWarehouseFilter();
+    renderManagementScore();
+    const src = trendsRows();
+    // returned items = closed, not write-off, has rtnDate and dueDate
+    const closed = src.filter(r=>!r.outstanding && r.rtnDate);
+    const returnedClean = closed.filter(r=> classifyWriteOff(r) === null && !r.byDesign);
+
+    // monthly on-time rate
+    const monthMap = new Map();
+    returnedClean.forEach(r=>{
+      if (!r.dueDate) return;
+      const key = monthKey(r.rtnDate);
+      if (!monthMap.has(key)) monthMap.set(key, {total:0, onTime:0, lateSum:0, lateCount:0});
+      const m = monthMap.get(key);
+      m.total++;
+      const diff = daysDiff(r.rtnDate, r.dueDate);
+      if (diff <= 0) m.onTime++;
+      else { m.lateSum += diff; m.lateCount++; }
+    });
+    let months = Array.from(monthMap.keys()).sort();
+    const currentMonthKey = monthKey(new Date());
+    months = months.filter(k=>k<=currentMonthKey); // exclude future months (likely data-entry typos)
+    months = months.slice(-18); // last 18 months
+    const onTimeRates = months.map(k=>{
+      const m = monthMap.get(k);
+      return m.total ? Math.round((m.onTime/m.total)*1000)/10 : 0;
+    });
+    const avgLate = months.map(k=>{
+      const m = monthMap.get(k);
+      return m.lateCount ? Math.round((m.lateSum/m.lateCount)*10)/10 : 0;
+    });
+
+    lineChart(document.getElementById('onTimeChart'), {
+      labels: months.map(monthLabel),
+      series: [{name:'On-time %', values: onTimeRates, color:'#1F8A55'}],
+      yFormat: v=>Math.round(v)+'%'
+    });
+
+    lineChart(document.getElementById('lateDaysChart'), {
+      labels: months.map(monthLabel),
+      series: [{name:'วันเฉลี่ยคืนช้า', values: avgLate, color:'#C0392B'}],
+      yFormat: v=>Math.round(v)
+    });
+
+    // backlog: opened by month (all rows w/ valid doc+date), closed by month (all closed rows)
+    const openMap = new Map(), closeMap = new Map();
+    src.forEach(r=>{
+      if (r.dateOpened){
+        const k = monthKey(r.dateOpened);
+        openMap.set(k, (openMap.get(k)||0)+1);
+      }
+    });
+    src.filter(r=>!r.outstanding && r.rtnDate).forEach(r=>{
+      const k = monthKey(r.rtnDate);
+      closeMap.set(k, (closeMap.get(k)||0)+1);
+    });
+    let allMonths = Array.from(new Set([...openMap.keys(), ...closeMap.keys()])).sort();
+    allMonths = allMonths.filter(k=>k<=currentMonthKey); // exclude future months (likely data-entry typos)
+    allMonths = allMonths.slice(-18);
+    let cum = 0;
+    // compute cumulative starting baseline before window
+    const beforeWindow = Array.from(new Set([...openMap.keys(), ...closeMap.keys()])).sort().filter(k=>!allMonths.includes(k));
+    beforeWindow.forEach(k=>{ cum += (openMap.get(k)||0) - (closeMap.get(k)||0); });
+    const cumSeries = allMonths.map(k=>{
+      cum += (openMap.get(k)||0) - (closeMap.get(k)||0);
+      return cum;
+    });
+    comboBarLine(document.getElementById('backlogChart'), {
+      labels: allMonths.map(monthLabel),
+      barsA: allMonths.map(k=>openMap.get(k)||0),
+      barsB: allMonths.map(k=>closeMap.get(k)||0),
+      line: cumSeries
+    });
+  }
+
+  // ============ SALE PAGE ============
+  let saleStaffList = [];      // full sorted list of {num, name, dept} with a name
+  let selectedStaffNum = '';   // currently selected person's numeric code, '' = none
+
+  function populateSaleDropdown(){
+    saleStaffList = STAFF.filter(s=>s.name).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+    // if the previously selected person no longer resolves (e.g. staff list refreshed), clear selection
+    if (selectedStaffNum && !saleStaffList.some(s=>s.num===selectedStaffNum)){
+      selectedStaffNum = '';
+      const input = document.getElementById('saleSearchInput');
+      if (input) input.value = '';
+    }
+    renderSaleComboboxList(saleStaffList);
+  }
+
+  function renderSaleComboboxList(list){
+    const box = document.getElementById('saleComboboxList');
+    if (!list.length){
+      box.innerHTML = '<div class="combobox-empty">ไม่พบชื่อที่ตรงกับคำค้นหา</div>';
+      return;
+    }
+    box.innerHTML = list.map(s=>`
+      <div class="combobox-item" onclick="CSM.selectSaleStaff('${s.num}')">
+        ${escapeHtml(s.name)}${s.dept?` <span class="dept">(${escapeHtml(s.dept)})</span>`:''}
+      </div>`).join('');
+  }
+
+  function filterSaleCombobox(query){
+    const q = query.trim().toLowerCase();
+    // typing again means the previous selection (if any) no longer applies until re-picked
+    selectedStaffNum = '';
+    const filtered = !q ? saleStaffList : saleStaffList.filter(s=>s.name.toLowerCase().includes(q));
+    renderSaleComboboxList(filtered);
+    document.getElementById('saleComboboxList').classList.remove('hidden');
+    renderSalePage();
+  }
+
+  function openSaleCombobox(){
+    document.getElementById('saleComboboxList').classList.remove('hidden');
+  }
+
+  function selectSaleStaff(num){
+    const s = saleStaffList.find(x=>x.num===num);
+    if (!s) return;
+    selectedStaffNum = num;
+    document.getElementById('saleSearchInput').value = s.name;
+    document.getElementById('saleComboboxList').classList.add('hidden');
+    renderSalePage();
+  }
+
+  document.addEventListener('click', e=>{
+    const box = document.getElementById('saleCombobox');
+    if (box && !box.contains(e.target)){
+      document.getElementById('saleComboboxList').classList.add('hidden');
+    }
+  });
+
+  function renderSalePage(){
+    const num = selectedStaffNum;
+    const content = document.getElementById('saleContent');
+    const empty = document.getElementById('saleEmptyState');
+    if (!num){ content.classList.add('hidden'); empty.classList.remove('hidden'); }
+    else {
+      content.classList.remove('hidden'); empty.classList.add('hidden');
+      const out = outstandingRows().filter(r=>{
+        const n = String(r.staffCode).replace(/\D/g,'').replace(/^0+/,'');
+        return n === num;
+      });
+      const overdue = out.filter(r=>r.status==='overdue');
+      const near = out.filter(r=>r.status==='near');
+      const value = out.reduce((s,r)=>s+r.total,0);
+      const uniqueDocs = new Set(out.map(r=>r.doc)).size;
+      document.getElementById('saleKpiGrid').innerHTML = [
+        kpiCard('เอกสารค้างของคุณ', uniqueDocs.toLocaleString(), {primary:true}),
+        kpiCard('เกินกำหนดแล้ว', overdue.length.toLocaleString(), {cls:'red'}),
+        kpiCard('ใกล้ครบกำหนด', near.length.toLocaleString(), {cls:'amber'}),
+        kpiCard('มูลค่ารวม', fmtMoney(value)+' ฿'),
+      ].join('');
+
+      // ---- วินัยการคืน (based on this person's full return history) ----
+      const closedForPerson = rows.filter(r=>{
+        const n = String(r.staffCode).replace(/\D/g,'').replace(/^0+/,'');
+        return n === num && !r.outstanding && r.rtnDate;
+      });
+      const returnedClean = closedForPerson.filter(r=>classifyWriteOff(r)===null && !r.byDesign && r.dueDate);
+      const onTimeCount = returnedClean.filter(r=>daysDiff(r.rtnDate,r.dueDate)<=0).length;
+      const onTimeRate = returnedClean.length ? (onTimeCount/returnedClean.length*100) : null;
+      const cycleTimes = returnedClean.filter(r=>r.dateOpened).map(r=>daysDiff(r.rtnDate,r.dateOpened));
+      const avgCycle = cycleTimes.length ? cycleTimes.reduce((a,b)=>a+b,0)/cycleTimes.length : null;
+      const lateOnes = returnedClean.filter(r=>daysDiff(r.rtnDate,r.dueDate)>0);
+      const avgLate = lateOnes.length ? lateOnes.reduce((s,r)=>s+daysDiff(r.rtnDate,r.dueDate),0)/lateOnes.length : null;
+
+      document.getElementById('saleDisciplineStats').innerHTML = returnedClean.length ? `
+        <div class="stat-row"><span class="stat-label">คืนตรงเวลากี่ % (จาก ${returnedClean.length} รายการที่ผ่านมา)</span><span class="stat-value ${onTimeRate>=70?'green':(onTimeRate>=40?'amber':'red')}">${Math.round(onTimeRate)}%</span></div>
+        <div class="stat-row"><span class="stat-label">เฉลี่ยแล้วถือของกี่วันก่อนคืน</span><span class="stat-value">${avgCycle!==null ? Math.round(avgCycle)+' วัน' : '—'}</span></div>
+        <div class="stat-row"><span class="stat-label">วันคืนช้าเฉลี่ย (เฉพาะที่คืนช้า ${lateOnes.length} รายการ)</span><span class="stat-value ${lateOnes.length?'red':'green'}">${avgLate!==null ? Math.round(avgLate)+' วัน' : 'ไม่มีรายการคืนช้า'}</span></div>
+      ` : '<div class="empty-state">ยังไม่มีประวัติการคืนของคุณในระบบ</div>';
+
+      // ---- ของที่ยังอยู่ในมือตอนนี้ (based on currently outstanding rows: `out`) ----
+      const overdueVal = overdue.reduce((s,r)=>s+r.total,0);
+      const overdueAvgAge = overdue.length ? overdue.reduce((s,r)=>s+r.diffDays,0)/overdue.length : null;
+      const byWh = new Map();
+      out.forEach(r=>{ const wh=r.warehouse||'(ไม่ระบุ)'; byWh.set(wh, (byWh.get(wh)||0)+r.total); });
+      const whArr = Array.from(byWh.entries()).sort((a,b)=>b[1]-a[1]);
+
+      document.getElementById('saleRiskStats').innerHTML = out.length ? `
+        <div class="stat-row"><span class="stat-label">มูลค่าที่ถืออยู่ตอนนี้</span><span class="stat-value">${fmtMoney(value)} ฿</span></div>
+        <div class="stat-row"><span class="stat-label">เกินกำหนดแล้ว (${overdue.length} รายการ)</span><span class="stat-value ${overdue.length?'red':'green'}">${fmtMoney(overdueVal)} ฿</span></div>
+        <div class="stat-row"><span class="stat-label">อายุเฉลี่ยของรายการเกินกำหนด</span><span class="stat-value ${overdueAvgAge?'red':''}">${overdueAvgAge!==null ? Math.round(overdueAvgAge)+' วัน' : '—'}</span></div>
+        ${whArr.length ? '<div style="margin-top:10px;">' + whArr.map(([wh,v])=>{
+          const pct = value ? (v/value*100) : 0;
+          return `<div class="wh-mini-bar"><span class="wh-name">${escapeHtml(wh)}</span><span class="wh-track"><span class="wh-fill" style="width:${pct.toFixed(1)}%"></span></span><span class="wh-pct">${fmtMoney(v)} ฿ (${pct.toFixed(0)}%)</span></div>`;
+        }).join('') + '</div>' : ''}
+      ` : '<div class="empty-state">ไม่มีของค้างอยู่ในมือตอนนี้ 🎉</div>';
+
+      // ---- การเลื่อนกำหนดคืน (all rows for this person, closed + outstanding; not scored) ----
+      const allForPerson = rows.filter(r=>{
+        const n = String(r.staffCode).replace(/\D/g,'').replace(/^0+/,'');
+        return n === num;
+      });
+      const delayedForPerson = allForPerson.filter(r=>r.wasDelayed);
+      const delayedDocsForPerson = new Set(delayedForPerson.map(r=>r.doc)).size;
+      const avgDelayDays = delayedForPerson.length ? delayedForPerson.reduce((s,r)=>s+r.delayDays,0)/delayedForPerson.length : null;
+      const byDesignCount = out.filter(r=>r.byDesign).length;
+
+      document.getElementById('saleDelayStats').innerHTML = (delayedDocsForPerson || byDesignCount) ? `
+        <div class="stat-row"><span class="stat-label">เอกสารที่เคยถูกเลื่อนกำหนดคืน</span><span class="stat-value">${delayedDocsForPerson.toLocaleString()} เอกสาร</span></div>
+        <div class="stat-row"><span class="stat-label">จำนวนวันเฉลี่ยที่เลื่อนต่อครั้ง</span><span class="stat-value">${avgDelayDays!==null ? Math.round(avgDelayDays)+' วัน' : '—'}</span></div>
+        <div class="stat-row"><span class="stat-label">รายการที่ค้างแบบ By Design ตอนนี้</span><span class="stat-value">${byDesignCount.toLocaleString()} รายการ</span></div>
+      ` : '<div class="empty-state">ไม่มีประวัติการเลื่อนกำหนดคืน</div>';
+
+      const byDoc = new Map();
+      out.forEach(r=>{ if(!byDoc.has(r.doc)) byDoc.set(r.doc,[]); byDoc.get(r.doc).push(r); });
+      const docsArr = Array.from(byDoc.entries()).map(([doc,items])=>{
+        const worst = items.reduce((a,b)=>{
+          const order = STATUS_ORDER;
+          return (order[a.status]??9) <= (order[b.status]??9) ? a : b;
+        });
+        const models = Array.from(new Set(items.map(i=>i.model).filter(Boolean))).join(', ');
+        const value = items.reduce((s,r)=>s+r.total,0);
+        return {doc, status:worst.status, dueDate:worst.dueDate, customer:items[0].customer, models, value,
+          byDesign: items.some(i=>i.byDesign), wasDelayed: items.some(i=>i.wasDelayed)};
+      }).sort((a,b)=>{
+        const order = STATUS_ORDER;
+        return (order[a.status]??9)-(order[b.status]??9);
+      });
+      document.getElementById('saleTableBody').innerHTML = docsArr.length ? docsArr.map(d=>`
+        <tr>
+          <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(d.doc)}')">${escapeHtml(d.doc)}</button></td>
+          <td>${statusBadge(d.status)}${extraBadges(d)}</td>
+          <td>${fmtDate(d.dueDate)}</td>
+          <td>${escapeHtml(d.customer)||'—'}</td>
+          <td>${escapeHtml(d.models)||'—'}</td>
+          <td class="num">${fmtMoney(d.value)}</td>
+        </tr>`).join('') : '<tr><td colspan="6"><div class="empty-state">ไม่มีรายการค้าง 🎉</div></td></tr>';
+    }
+
+    // unknown staff table (always visible regardless of dropdown)
+    // Includes: (a) staff codes with no resolvable name, and (b) any document whose Remark
+    // notes a previous responsible sale person — the current Staff code may be stale/reassigned.
+    const out = outstandingRows();
+    const unknown = out.filter(r=>{
+      const s = findStaffByCode(r.staffCode);
+      return !s || !s.name || r.oldSaleNote;
+    });
+    const byDoc2 = new Map();
+    unknown.forEach(r=>{ const k=r.staffCode+'|'+r.doc; if(!byDoc2.has(k)) byDoc2.set(k,[]); byDoc2.get(k).push(r); });
+    const arr2 = Array.from(byDoc2.entries()).map(([k,items])=>{
+      const [code,doc] = k.split('|');
+      const worst = items.reduce((a,b)=>{
+        const order = STATUS_ORDER;
+        return (order[a.status]??9) <= (order[b.status]??9) ? a : b;
+      });
+      const value = items.reduce((s,r)=>s+r.total,0);
+      const oldNote = items.some(i=>i.oldSaleNote);
+      return {code, doc, status:worst.status, dueDate:worst.dueDate, customer:items[0].customer, value, oldNote};
+    }).sort((a,b)=> (a.code||'').localeCompare(b.code||''));
+    document.getElementById('unknownStaffTableBody').innerHTML = arr2.length ? arr2.map(d=>`
+      <tr>
+        <td class="mono">${escapeHtml(d.code)||'—'}</td>
+        <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(d.doc)}')">${escapeHtml(d.doc)}</button></td>
+        <td>${statusBadge(d.status)}</td>
+        <td>${d.oldNote ? '<span class="badge oldnote">⚠️ มีโน้ตชื่อ Sale เดิม</span>' : '—'}</td>
+        <td>${fmtDate(d.dueDate)}</td>
+        <td>${escapeHtml(d.customer)||'—'}</td>
+        <td class="num">${fmtMoney(d.value)}</td>
+      </tr>`).join('') : '<tr><td colspan="7"><div class="empty-state">ไม่มีรายการที่รหัสไม่พบชื่อ</div></td></tr>';
+  }
+
+  // ============ WRITE-OFF PAGE ============
+  function renderWriteoff(){
+    const out = outstandingRows().filter(r=>r.writeoffRule);
+    const totalValue = out.reduce((s,r)=>s+r.total,0);
+    const uniqueDocs = new Set(out.map(r=>r.doc)).size;
+
+    document.getElementById('writeoffKpiGrid').innerHTML = [
+      kpiCard('รายการรอเคลียร์ทั้งหมด', out.length.toLocaleString()+' รายการ', {sub: uniqueDocs+' เอกสาร', primary:true, cls:'red'}),
+      kpiCard('มูลค่ารวม', fmtMoney(totalValue)+' ฿', {cls:'red'}),
+    ].join('');
+
+    const byCategory = new Map();
+    out.forEach(r=>{
+      const key = r.writeoffRule.key;
+      if (!byCategory.has(key)) byCategory.set(key, {label:r.writeoffRule.label, count:0, value:0});
+      const c = byCategory.get(key);
+      c.count++; c.value += r.total;
+    });
+    const cats = Array.from(byCategory.values()).sort((a,b)=>b.value-a.value);
+    barChart(document.getElementById('writeoffCategoryChart'), {
+      labels: cats.map(c=>c.label), values: cats.map(c=>Math.round(c.value)), color:'#C0392B',
+      valueFmt: v=>fmtMoney(v)
+    });
+
+    const catSel = document.getElementById('woCategoryFilter');
+    const curCat = catSel.value;
+    catSel.innerHTML = '<option value="">ทั้งหมด</option>' + Array.from(byCategory.entries()).map(([k,c])=>`<option value="${k}">${c.label}</option>`).join('');
+    catSel.value = curCat;
+
+    renderWriteoffTable();
+  }
+
+  function renderWriteoffTable(){
+    let out = outstandingRows().filter(r=>r.writeoffRule);
+    const catF = document.getElementById('woCategoryFilter').value;
+    if (catF) out = out.filter(r=>r.writeoffRule.key===catF);
+
+    const byDoc = new Map();
+    out.forEach(r=>{ if(!byDoc.has(r.doc)) byDoc.set(r.doc,[]); byDoc.get(r.doc).push(r); });
+    let docsArr = Array.from(byDoc.entries()).map(([doc,items])=>{
+      const value = items.reduce((s,r)=>s+r.total,0);
+      const cats = Array.from(new Set(items.map(i=>i.writeoffRule.label)));
+      const remarkTexts = Array.from(new Set(items.map(i=>i.remark || i.objective).filter(Boolean)));
+      const staff = findStaffByCode(items[0].staffCode);
+      return {
+        doc, value, cats, remark: remarkTexts[0] || '—',
+        staffName: staff ? (staff.name || staff.code) : (items[0].staffCode || '—'),
+        customer: items[0].customer
+      };
+    });
+    docsArr.sort((a,b)=>b.value-a.value);
+
+    const tbody = document.getElementById('woTableBody');
+    if (!docsArr.length){ tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">ไม่พบรายการ</div></td></tr>'; return; }
+    tbody.innerHTML = docsArr.slice(0,500).map(d=>`
+      <tr>
+        <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(d.doc)}')">${escapeHtml(d.doc)}</button></td>
+        <td>${d.cats.map(c=>`<span class="badge writeoff">${escapeHtml(c)}</span>`).join(' ')}</td>
+        <td>${escapeHtml(d.remark)}</td>
+        <td>${escapeHtml(d.staffName)}</td>
+        <td>${escapeHtml(d.customer)||'—'}</td>
+        <td class="num">${fmtMoney(d.value)}</td>
+      </tr>`).join('');
+  }
+
+  // ============ DOC DETAIL MODAL ============
+  function openDocModal(doc){
+    const items = rows.filter(r=>r.doc===doc);
+    if (!items.length){ return; }
+    const overlay = document.getElementById('docModalOverlay');
+    document.getElementById('docModalTitle').textContent = doc;
+
+    const outstandingItems = items.filter(r=>r.outstanding);
+    const totalQty = items.reduce((s,r)=>s+r.qty,0);
+    const totalValue = items.reduce((s,r)=>s+r.total,0);
+    const outstandingValue = outstandingItems.reduce((s,r)=>s+r.total,0);
+    const staff = findStaffByCode(items[0].staffCode);
+    const staffName = staff ? (staff.name || staff.code) : (items[0].staffCode || '—');
+    const worst = outstandingItems.length ? outstandingItems.reduce((a,b)=>{
+      const order = STATUS_ORDER;
+      return (order[a.status]??9) <= (order[b.status]??9) ? a : b;
+    }) : null;
+
+    const summaryPieces = [
+      {l:'สถานะ', v: worst ? '' : 'คืนครบแล้ว', badge: worst ? statusBadge(worst.status) : null},
+      {l:'Sale', v: staffName},
+      {l:'ลูกค้า', v: items[0].customer || '—'},
+      {l:'Warehouse', v: items[0].warehouse || '—'},
+      {l:'จำนวนรวม', v: totalQty.toLocaleString() + ' ชิ้น'},
+      {l:'มูลค่ารวมทั้งหมด', v: fmtMoney(totalValue) + ' ฿'},
+    ];
+    if (outstandingItems.length && outstandingItems.length < items.length){
+      summaryPieces.push({l:'มูลค่าที่ยังค้างอยู่', v: fmtMoney(outstandingValue) + ' ฿', red:true});
+    }
+    if (worst && worst.dueDate){
+      summaryPieces.push({l:'กำหนดคืน', v: fmtDate(worst.dueDate)});
+    }
+
+    document.getElementById('docModalSummary').innerHTML = summaryPieces.map(p=>`
+      <div class="mini">
+        <div class="l">${escapeHtml(p.l)}</div>
+        <div class="v ${p.red?'red':''}">${p.badge || escapeHtml(p.v)}</div>
+      </div>`).join('');
+
+    document.getElementById('docModalTableBody').innerHTML = items.map(r=>`
+      <tr>
+        <td>${r.outstanding ? statusBadge(r.status) : statusBadge('closed')}</td>
+        <td>${escapeHtml(r.brand)||'—'}</td>
+        <td>${escapeHtml(r.model)||'—'}</td>
+        <td class="mono">${escapeHtml(r.serial)||'—'}</td>
+        <td class="num">${r.qty}</td>
+        <td class="num">${fmtMoney(r.price)}</td>
+        <td class="num">${fmtMoney(r.total)}</td>
+        <td>${escapeHtml(r.remark)||'—'}</td>
+      </tr>`).join('');
+
+    overlay.classList.remove('hidden');
+  }
+
+  function closeDocModal(){
+    document.getElementById('docModalOverlay').classList.add('hidden');
+  }
+
+  document.addEventListener('keydown', e=>{
+    if (e.key === 'Escape'){ closeDocModal(); closeDataIssuesModal(); }
+  });
+
+  // ============ DATA QUALITY CHECK (future-dated rows) ============
+  // A "Date" or "Rtn Date" that parses to later than today is impossible for a real historical
+  // event — it almost always means a typo in the sheet (wrong year, or day/month swapped).
+  function findDataIssues(){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const issues = [];
+    rows.forEach(r=>{
+      if (r.dateOpened && r.dateOpened > today){
+        issues.push({doc:r.doc, serial:r.serial, field:'Date (วันที่เปิดเอกสาร)', raw:r.dateOpenedRaw, parsed:fmtDate(r.dateOpened)});
+      }
+      if (r.rtnDate && r.rtnDate > today){
+        issues.push({doc:r.doc, serial:r.serial, field:'Rtn Date (วันที่คืน)', raw:r.rtnRaw, parsed:fmtDate(r.rtnDate)});
+      }
+    });
+    return issues;
+  }
+
+  function renderDataIssuesButton(){
+    const issues = findDataIssues();
+    const btn = document.getElementById('btnDataIssues');
+    if (!btn) return;
+    if (issues.length){
+      btn.classList.remove('hidden');
+      btn.textContent = `⚠️ พบวันที่ผิดปกติ ${issues.length} รายการ`;
+    } else {
+      btn.classList.add('hidden');
+    }
+  }
+
+  function openDataIssuesModal(){
+    const issues = findDataIssues();
+    const tbody = document.getElementById('dataIssuesTableBody');
+    tbody.innerHTML = issues.length ? issues.map(i=>`
+      <tr>
+        <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(i.doc)}')">${escapeHtml(i.doc)}</button></td>
+        <td class="mono">${escapeHtml(i.serial)||'—'}</td>
+        <td>${escapeHtml(i.field)}</td>
+        <td class="mono">${escapeHtml(i.raw)}</td>
+        <td>${escapeHtml(i.parsed)}</td>
+      </tr>`).join('') : '<tr><td colspan="5"><div class="empty-state">ไม่พบวันที่ผิดปกติ</div></td></tr>';
+    document.getElementById('dataIssuesModalOverlay').classList.remove('hidden');
+  }
+  function closeDataIssuesModal(){
+    document.getElementById('dataIssuesModalOverlay').classList.add('hidden');
+  }
+
+  function exportDataIssuesToExcel(){
+    const issues = findDataIssues();
+    if (!issues.length || typeof XLSX === 'undefined') return;
+    const wsData = [
+      ['Document','Serial','คอลัมน์ที่ผิด','ค่าที่กรอกในชีท','ตีความเป็น'],
+      ...issues.map(i=>[i.doc, i.serial, i.field, i.raw, i.parsed])
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:16},{wch:20},{wch:22},{wch:16},{wch:16}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'วันที่ผิดปกติ');
+    const todayStr = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `CSM_วันที่ผิดปกติ_${todayStr}.xlsx`);
+  }
+
+  // ============ ACTION PLAN PAGE ============
+  function renderActionPlan(){
+    renderActionOverview();
+    renderPriorityGroups();
+    renderWatchlist();
+  }
+
+  function warehouseCategory(wh){
+    const w = (wh||'').toUpperCase();
+    if (w.includes('CSM')) return 'CSM';
+    if (w.includes('SAMPLE')) return 'Sample';
+    if (w.includes('RMA')) return 'RMA';
+    return 'อื่นๆ';
+  }
+
+  function groupByDocSortedByValue(items, limit){
+    const byDoc = new Map();
+    items.forEach(r=>{ if(!byDoc.has(r.doc)) byDoc.set(r.doc,[]); byDoc.get(r.doc).push(r); });
+    let arr = Array.from(byDoc.entries()).map(([doc,its])=>{
+      const value = its.reduce((s,r)=>s+r.total,0);
+      const worst = its.reduce((a,b)=> (a.diffDays??-1) >= (b.diffDays??-1) ? a : b);
+      const staff = findStaffByCode(its[0].staffCode);
+      return {
+        doc, value, diffDays: worst.diffDays,
+        staffName: staff ? (staff.name || staff.code) : (its[0].staffCode || '—'),
+        customer: its[0].customer
+      };
+    });
+    arr.sort((a,b)=>b.value-a.value);
+    return limit ? arr.slice(0, limit) : arr;
+  }
+
+  function priorityGroupCard(label, items){
+    const rowsHtml = items.length ? items.map(it=>`
+      <tr>
+        <td class="mono"><button class="doc-link" onclick="CSM.openDocModal('${escapeAttr(it.doc)}')">${escapeHtml(it.doc)}</button></td>
+        <td class="num">${fmtMoney(it.value)}</td>
+        <td class="num">${it.diffDays!==null ? it.diffDays+' วัน' : '—'}</td>
+        <td>${escapeHtml(it.staffName)}</td>
+        <td>${escapeHtml(it.customer)||'—'}</td>
+      </tr>`).join('') : '<tr><td colspan="5"><div class="empty-state">ไม่มีรายการเกินกำหนดในกลุ่มนี้ 🎉</div></td></tr>';
+    return `
+      <div class="section-label" style="margin-top:22px;">${escapeHtml(label)}</div>
+      <div class="frame secondary table-wrap">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <table>
+          <thead><tr>
+            <th>Document</th><th class="num">มูลค่า (บาท)</th><th class="num">ค้างมาแล้ว</th><th>ผู้รับผิดชอบ</th><th>ลูกค้า</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderPriorityGroups(){
+    const out = outstandingRows();
+
+    // "By Project" reference total (informational only, not excluded from any scoring)
+    const byProjectItems = out.filter(r=>(r.check||'').toLowerCase().includes('by project'));
+    const byProjectValue = byProjectItems.reduce((s,r)=>s+r.total,0);
+    document.getElementById('byProjectStat').innerHTML = `
+      <div class="frame secondary kpi" style="max-width:340px;">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div class="lbl">มูลค่ารวมรายการ "By Project"</div>
+        <div class="val">${fmtMoney(byProjectValue)} ฿</div>
+        <div class="sub">${byProjectItems.length.toLocaleString()} รายการ — ข้อมูลอ้างอิงเท่านั้น ไม่กระทบคะแนน</div>
+      </div>`;
+
+    // split overdue, non-write-off items by warehouse category
+    const csmItems = [], sampleItems = [], rmaItems = [], otherItems = [];
+    out.forEach(r=>{
+      if (r.status !== 'overdue' || r.writeoffRule) return;
+      const cat = warehouseCategory(r.warehouse);
+      if (cat === 'CSM') csmItems.push(r);
+      else if (cat === 'Sample') sampleItems.push(r);
+      else if (cat === 'RMA') rmaItems.push(r);
+      else otherItems.push(r);
+    });
+    const writeoffItems = out.filter(r=>r.writeoffRule);
+
+    let html = '';
+    html += priorityGroupCard('CSM (ของมีค่า Test/Demo — เร่งด่วนที่สุด)', groupByDocSortedByValue(csmItems, 10));
+    html += priorityGroupCard('Sample (ของฟรี/ไม่มีมูลค่า)', groupByDocSortedByValue(sampleItems, 10));
+    html += priorityGroupCard('RMA (ของเสีย รอทำลาย)', groupByDocSortedByValue(rmaItems, 10));
+    if (otherItems.length) html += priorityGroupCard('อื่นๆ', groupByDocSortedByValue(otherItems, 10));
+    html += priorityGroupCard('รอการตัดสินใจ (หาย/ชำรุด/รอทำลาย)', groupByDocSortedByValue(writeoffItems, 10));
+
+    document.getElementById('priorityGroupsContainer').innerHTML = html;
+  }
+
+  function renderActionOverview(){
+    const m = computeManagementScore();
+    const out = outstandingRows();
+    const el = document.getElementById('actionOverviewList');
+    const recs = [];
+
+    m.components.forEach(c=>{
+      if (c.score >= 70) return; // only surface components that need attention
+      let text = '';
+      if (c.label.includes('คืนตรงเวลา')){
+        text = `อัตราคืนตรงเวลาช่วงนี้อยู่ที่ ${c.value} (เกณฑ์ที่ดีคือ 70% ขึ้นไป) — แนะนำ: ดูตารางในหน้า "ภาพรวม" กรองสถานะ "เกินกำหนด" แล้วโฟกัสติดตามรายชื่อ Sale ที่คืนช้าซ้ำๆ ก่อน`;
+      } else if (c.label.includes('ของค้างสะสม')){
+        const bucket90 = out.filter(r=>r.status!=='pending_inspection' && r.diffDays!==null && r.diffDays>90);
+        const bucket90Value = bucket90.reduce((s,r)=>s+r.total,0);
+        text = `ของค้างสะสมกำลัง${c.value} — พบรายการเกินกำหนดมานาน 90+ วัน จำนวน ${bucket90.length} รายการ มูลค่ารวม ${fmtMoney(bucket90Value)} ฿ แนะนำเร่งติดตามกลุ่มนี้ก่อน (ดูกราฟ Ageing ในหน้าภาพรวม)`;
+      } else if (c.label.includes('วันคืนช้าเฉลี่ย')){
+        text = `วันคืนช้าเฉลี่ยของรายการที่คืนช้าอยู่ที่ ${c.value} — แนะนำพิจารณาส่งแจ้งเตือนล่วงหน้าก่อนถึงกำหนดคืน แทนที่จะแจ้งหลังเกินกำหนดแล้ว`;
+      } else if (c.label.includes('ค้างตัดสินใจ')){
+        const woValue = out.filter(r=>r.writeoffRule).reduce((s,r)=>s+r.total,0);
+        text = `มีของมูลค่า ${fmtMoney(woValue)} ฿ ที่เข้าเกณฑ์ "เอาคืนไม่ได้แล้ว" (หาย/ชำรุด/รอทำลาย) ยังไม่ได้ตัดสินใจเคลียร์ออกจากระบบ — แนะนำเสนอผู้บริหารพิจารณาอนุมัติตัดจำหน่าย (ดูรายละเอียดในแท็บ "รอเคลียร์ออกจากระบบ")`;
+      }
+      recs.push({label:c.label, score:c.score, text});
+    });
+
+    if (!recs.length){
+      el.innerHTML = '<div class="callout" style="border-color:var(--green);background:var(--green-bg);">🎉 ทุกองค์ประกอบอยู่ในเกณฑ์ดีขึ้นไป ไม่มีจุดที่ต้องเร่งแก้ไขตอนนี้</div>';
+      return;
+    }
+    el.innerHTML = recs.map(r=>`
+      <div class="frame secondary" style="margin-bottom:12px;padding:14px 18px;">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <span class="badge overdue">คะแนน ${r.score}/100</span>
+          <strong style="color:var(--blue);font-size:13.5px;">${escapeHtml(r.label)}</strong>
+        </div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.6;">${escapeHtml(r.text)}</div>
+      </div>`).join('');
+  }
+
+  function renderWatchlist(){
+    const named = STAFF.filter(s=>s.name);
+    const items = [];
+    named.forEach(s=>{
+      const num = s.num;
+      const closedForPerson = rows.filter(r=>{
+        const n = String(r.staffCode).replace(/\D/g,'').replace(/^0+/,'');
+        return n === num && !r.outstanding && r.rtnDate;
+      });
+      const returnedClean = closedForPerson.filter(r=>classifyWriteOff(r)===null && !r.byDesign && r.dueDate);
+      const onTimeCount = returnedClean.filter(r=>daysDiff(r.rtnDate,r.dueDate)<=0).length;
+      const onTimeRate = returnedClean.length ? (onTimeCount/returnedClean.length*100) : null;
+
+      const outForPerson = outstandingRows().filter(r=>{
+        const n = String(r.staffCode).replace(/\D/g,'').replace(/^0+/,'');
+        return n === num;
+      });
+      const overdueForPerson = outForPerson.filter(r=>r.status==='overdue');
+      const overdueValue = overdueForPerson.reduce((s,r)=>s+r.total,0);
+
+      if (outForPerson.length === 0) return; // only watchlist people who currently hold outstanding items
+
+      const reasons = [];
+      if (returnedClean.length>=3 && onTimeRate<50) reasons.push(`คืนตรงเวลาแค่ ${Math.round(onTimeRate)}% (จาก ${returnedClean.length} รายการ)`);
+      if (overdueValue>=100000) reasons.push(`มีของเกินกำหนดมูลค่า ${fmtMoney(overdueValue)} ฿`);
+
+      if (reasons.length) items.push({name:s.name, num, onTimeRate, overdueValue, reasons});
+    });
+
+    items.sort((a,b)=> b.overdueValue - a.overdueValue);
+
+    const tbody = document.getElementById('watchlistTableBody');
+    if (!items.length){
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">ไม่มี Sale ที่เข้าเกณฑ์ Watchlist ตอนนี้ 🎉</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(it=>`
+      <tr>
+        <td><strong>${escapeHtml(it.name)}</strong></td>
+        <td>${it.reasons.map(r=>`<div style="font-size:12px;color:var(--ink-soft);">• ${escapeHtml(r)}</div>`).join('')}</td>
+        <td class="num">${it.onTimeRate!==null ? Math.round(it.onTimeRate)+'%' : '—'}</td>
+        <td class="num">${fmtMoney(it.overdueValue)} ฿</td>
+        <td><button class="doc-link" onclick="CSM.showPage('sale'); CSM.selectSaleStaff('${it.num}')">ดูรายละเอียด →</button></td>
+      </tr>`).join('');
+  }
+
+  // ============ RENDER ALL ============
+  function renderAll(){
+    renderDataIssuesButton();
+    renderOverview();
+    renderTrends();
+    renderSalePage();
+    renderWriteoff();
+    renderActionPlan();
+  }
+
+  // ============ INIT ============
+  function init(){
+    const dataEl = document.getElementById('staff-data');
+    STAFF = JSON.parse(dataEl.textContent);
+    populateSaleDropdown();
+    fetchData(false);
+    autoTimer = setInterval(()=>fetchData(false), AUTO_REFRESH_MS);
+    window.addEventListener('resize', ()=>{ if(rows.length) renderAll(); });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  return { showPage, refresh, renderOverviewTable, renderSalePage, renderWriteoffTable, openDocModal, closeDocModal, openDataIssuesModal, closeDataIssuesModal, exportDataIssuesToExcel, filterSaleCombobox, openSaleCombobox, selectSaleStaff, setTrendsWarehouseFilter };
+})();
+
+</script>
+</body>
+</html>
